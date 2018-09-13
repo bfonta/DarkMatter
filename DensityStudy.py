@@ -10,6 +10,8 @@ from scipy.optimize import curve_fit
 
 import os
 
+from Modules.Halos import Halos
+
 print("################################################################")                                                    
 print("################Code is now running#############################")                                                    
 print("################################################################")   
@@ -18,15 +20,13 @@ DataFolder = "/fred/oz071/balves/"
 SnapshotFolder = "Test_NOSN_NOZCOOL_L010N0128/data/snapshot_103/snap_103.hdf5"
 SubhalosFolder = "Test_NOSN_NOZCOOL_L010N0128/data/subhalos_103/subhalo_103"
 
-s = pn.load(os.path.join(DataFolder,SubhalosFolder))
-s['eps'] = 200.*pn.units.pc
-s.physical_units()
+halos = Halos()
+print(halos)
 
 HALO_NUMBER = 5
 MIN_R, MAX_R = 0, 35
 COMPONENTS_NUMBER = 4 #total, gas, stars and dark matter
-assert HALO_NUMBER < len(s.halos())
-halos = s.halos()[:HALO_NUMBER]
+
 var = 0
 
 

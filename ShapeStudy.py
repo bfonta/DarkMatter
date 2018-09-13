@@ -2,6 +2,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
+
 import pynbody as pn
 import pynbody.plot.sph as sph
 import pynbody.units as u
@@ -9,44 +10,39 @@ import numpy as np
 from scipy.optimize import curve_fit
 
 import os
+from dmprofile.halos import Halos
+from dmprofile.move import Centering
+from dmprofile.plot import Profile
 
 print("################################################################")
 print("################Code is now running#############################")
 print("################################################################")
 
-DataFolder = "/fred/oz071/balves/"
-SnapshotFolder = "Test_NOSN_NOZCOOL_L010N0128/data/subhalos_103/subhalo_103"
-SubhalosFolder = "Test_NOSN_NOZCOOL_L010N0128/data/snapshot_103/snap_103"
-
-s = pn.load(os.path.join(DataFolder,SnapshotFolder))
-s['eps'] = 200.*pn.units.pc
-s.physical_units()
-
 HALO_NUMBER = 500
-assert HALO_NUMBER <= len(s.halos())
 
-halos = s.halos()[:HALO_NUMBER]
+DataFolder = "/fred/oz071/balves/"
+SubhalosFolder = "Test_NOSN_NOZCOOL_L010N0128/data/subhalos_103/subhalo_103"
+SnapshotFolder = "Test_NOSN_NOZCOOL_L010N0128/data/snapshot_103/snap_103"
 
-def centering(sim):
-    com = pn.analysis.halo.center_of_mass(sim)
-    return pn.transformation.inverse_translate(sim,com)
-
-with centering(halos[0]):    
-    p = pn.analysis.profile.Profile(halos[0], ndim=3)
-    plt.yscale('log')
-    plt.xscale('log')
-    plt.plot(p['rbins'], p['mass_enc'], '--', color='brown')
-    plt.xlabel('$R [kpc]$')
-    plt.ylabel(r'M$_{enc}$ [M$_{\odot}$]')
-    plt.savefig("Mass.png")
+h = Halos(os.path.join(DataFolder,SubhalosFolder), HALO_NUMBER)
+h0 = h.get_halo(0)
+with Centering(h0).com():
+    profile = pn.analysis.profile.Profile(h0, ndim=3)
+    p = Profile([profile, profile], name="MassEnclosed.png")
+    p.set_properties('Mass enclosed','R [kpc]','[M$_{\odot}$]','log','log')
+    p.plot_all("radius", "mass_enc")
+    p.savefig()
 
 
+"""
 M200, ba, ca, triax = ([] for i in range(4))
+halos = h.get_halos()
 for i_halo in range(HALO_NUMBER):
-    with centering(halos[i_halo]):
+    with Centering(halos[i_halo]).com():
         r200 = halos[i_halo].properties['Halo_R_Crit200'].in_units('kpc')
         m200 = halos[i_halo].properties['Halo_M_Crit200'].in_units('Msol')
         shape = pn.analysis.halo.halo_shape(halos[i_halo], N=1, rout=r200, bins='lin')
+        print(m200, "-", shape[1], "-", shape[2])
         if shape[1]>1e-10 and shape[2]>1e-10: #avoid infinities
             M200.append(m200)
             ba.append(shape[1])
@@ -70,3 +66,4 @@ axs[2].scatter(np.log10(M200), triax)
 axs[2].set_xlabel(r'$\log_{10}$(M$_{200}$ [M$_{\odot}$])')
 axs[2].set_ylabel(r'Triaxiality: $\frac{a²-b²}{a²-c²}$')
 f.savefig("Shape.png")
+"""
