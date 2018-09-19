@@ -27,14 +27,14 @@ h = Halos(os.path.join(DataFolder,SubhalosFolder), HALO_NUMBER)
 
 h0 = h.get_halo(0)
 with Centering(h0).com():
-    profile = pn.analysis.profile.Profile(h0, ndim=3)
-    p = plot.Profile([profile, profile, profile, profile, profile, profile], name="Density.png", h=15, w=13)
-    p.set_all_properties(title='Density', model='density_profile', 
-                     xscale='log', yscale='log')
+    profile = pn.analysis.profile.Profile(h0.dm, ndim=3, min=1, max=35)
+    p = plot.Profile([profile, profile], name="Density.png")
+    p.set_all_properties(title='Density', model='density_profile', yscale='log')
     p.plot_all("radius", "density")
+    p.fit_and_plot_all('nfw')
     p.savefig()
+    
 
-"""
 s, M200 = ([] for i in range(2))
 halos = h.get_halos()
 for i_halo in range(HALO_NUMBER):
@@ -46,7 +46,7 @@ for i_halo in range(HALO_NUMBER):
         if s_tmp[1]>1e-6 and s_tmp[2]>1e-6: #avoid infinities
             M200.append(np.log10(m200))
             s.append(s_tmp)
-            #triax.append((1-shape[1]**2)/(1-shape[2]**2))
+
 
 shape = plot.Shape([s, s, s], M200, name="Shape.png", w=16, h=13)
 shape.set_axis((0,0), xlabel=r'$\log_{10}(M)$ [M$_{\odot}$]', ylabel='b/a',
@@ -59,4 +59,3 @@ shape.scatter_plot(0, axis_idx=(0,0), x_var="mass", y_var="b/a")
 shape.scatter_plot(1, axis_idx=(0,1), x_var="mass", y_var="c/a")
 shape.scatter_plot(2, axis_idx=(1,1), x_var="mass", y_var="triax")
 shape.savefig()
-"""

@@ -4,6 +4,22 @@ import matplotlib.pyplot as plt
 import numpy as np
 import itertools, collections
 
+from pynbody.analysis.theoretical_profiles import NFWprofile
+
+#decorator: applies the same function to all objects in _Plot._obj_list
+def do_all_objects(func):
+    def wrapper(self, *args, **kwargs):
+        kwargs['i_profile'] = 0
+        for i in range(self._nrows):
+            for j in range(self._ncols):
+                if kwargs['i_profile'] < self._N:
+                    kwargs['i'] = i
+                    kwargs['j'] = j
+                    func(self, *args, **kwargs)
+                    kwargs['i_profile'] += 1
+    return wrapper
+
+
 class _Plot():
     def __init__(self, obj_list, width, height, nrows, ncols, name=''):
         if type(obj_list) is not list:
@@ -27,7 +43,6 @@ class _Plot():
         while _r*_c<self._N:
             _r += next(_r_iter)
             _c += next(_c_iter)
-        print("Nrows ", _r, " Ncols ", _c)
         return int(_r), int(_c)
         
     def _set_axis_indexes(self, axis_idx):
@@ -38,7 +53,7 @@ class _Plot():
         if self._N>2:
             return axis_idx[0], axis_idx[1]
         else:
-            return axis_idx
+            return axis_idx[0]
 
     def set_title(self, title):
         self._fig.suptitle(title)
@@ -53,7 +68,7 @@ class _Plot():
         if self._N>2:
             indexes = idx[0], idx[1]
         else:
-            indexes = idx
+            indexes = idx[0]
         self._axis[indexes].set_xscale(xscale)
         self._axis[indexes].set_yscale(yscale)
         self._axis[indexes].set_xlabel(xlabel)
@@ -67,7 +82,7 @@ class _Plot():
                     self.set_axis((i,j), xlabel, ylabel, xscale, yscale)
         else:
             for i in range(self._N):
-                self.set_axis(i, xlabel, ylabel, xscale, yscale)
+                self.set_axis((i,0), xlabel, ylabel, xscale, yscale)
 
     def set_all_properties(self, title="", model=None, 
                        xlabel='R [kpc]', ylabel=None, 
@@ -89,8 +104,8 @@ class _Plot():
                     for j in range(self._ncols):
                         self.set_axis((i,j), xlabel, ylabel, xscale, yscale)
                 else:
-                    self.set_axis(i, xlabel, ylabel, xscale, yscale)
-    
+                    self.set_axis((i,0), xlabel, ylabel, xscale, yscale)
+                    
     def savefig(self, name=''):
         if self._name=='':
             try:
@@ -132,25 +147,33 @@ class Profile(_Plot):
                           'density': 'density'}
             if x_var not in _translate.keys() or y_var not in _translate.keys():
                 raise ValueError
-            print(idx)
             return self._p[idx][_translate[x_var]], self._p[idx][_translate[y_var]]
 
         _x, _y = _define_vars(x_var, y_var)
         indexes = super()._set_axis_indexes(axis_idx)
         self._axis[indexes].plot(_x, _y)
 
-    def plot_all(self, x_var, y_var):
-        i_profile = 0
-        for i in range(self._nrows):
-            if self._N>2:
-                for j in range(self._ncols):
-                    if i_profile<self._N:
-                        self.plot(i_profile, (i, j), x_var, y_var)
-                        i_profile += 1
-            else:
-                self.plot(i_profile, i, x_var, y_var)
-                i_profile += 1
+    @do_all_objects
+    def plot_all(self, x_var, y_var, *args, **kwargs):
+        self.plot(kwargs['i_profile'], (kwargs['i'], kwargs['j']), x_var, y_var)
 
+    def fit_and_plot(self, idx, axis_idx, function='nfw'):
+        functions_implemented = ['nfw']
+        if function not in functions_implemented:
+            raise ValueError('The specified function has not yet been implemented.')
+        
+        if function=='nfw':
+            _fit = NFWprofile.fit(np.array(self._p[idx]['rbins']), 
+                                  np.array(self._p[idx]['density']))
+            _func = NFWprofile.profile_functional_static(np.array(self._p[idx]['rbins']), 
+                                                         _fit[0][0], _fit[0][1])
+            indexes = super()._set_axis_indexes(axis_idx)
+            self._axis[indexes].plot(np.array(self._p[idx]['rbins']),_func, label='NFW fit')
+            self._axis[indexes].legend()
+
+    @do_all_objects
+    def fit_and_plot_all(self, function='nfw', *args, **kwargs):
+        self.fit_and_plot(kwargs['i_profile'], (kwargs['i'], kwargs['j']))
 
 class Shape(_Plot):
     """
