@@ -5,6 +5,7 @@ import numpy as np
 import itertools, collections
 
 from pynbody.analysis.theoretical_profiles import NFWprofile
+from dmprofile.fit import nfw_fit
 
 #decorator: applies the same function to all objects in _Plot._obj_list
 def do_all_objects(func):
@@ -163,12 +164,12 @@ class Profile(_Plot):
             raise ValueError('The specified function has not yet been implemented.')
         
         if function=='nfw':
-            _fit = NFWprofile.fit(np.array(self._p[idx]['rbins']), 
-                                  np.array(self._p[idx]['density']))
+            _fit = nfw_fit(self._p[idx])
             _func = NFWprofile.profile_functional_static(np.array(self._p[idx]['rbins']), 
                                                          _fit[0][0], _fit[0][1])
             indexes = super()._set_axis_indexes(axis_idx)
-            self._axis[indexes].plot(np.array(self._p[idx]['rbins']),_func, label='NFW fit')
+            self._axis[indexes].plot(np.array(self._p[idx]['rbins']), 
+                                     _func(self._p[idx]), label='NFW fit')
             self._axis[indexes].legend()
 
     @do_all_objects
