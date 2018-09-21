@@ -27,6 +27,7 @@ h = Halos(os.path.join(DataFolder,SubhalosFolder), HALO_NUMBER)
 halos = h.get_halos()
 
 #Concentration
+"""
 c, M200 = ([] for i in range(2))
 for i in range(2,22):
     M200.append(halos[i].properties['Halo_M_Crit200'].in_units('Msol'))
@@ -36,20 +37,37 @@ c_obj.set_all_properties(model='concentration_mass')
 c_obj.scatter_plot(0, (0,0))
 c_obj.scatter_plot(1, (1,0))
 c_obj.savefig()
-
-#Density
 """
+#Density
 profiles = []
-for i in range(2,22):
-    h0 = h.get_halo(i)
-    with centering_com(h0):
-        profiles.append(pn.analysis.profile.Profile(h0.dm, ndim=3, nbins=140, min=4, max=25))
-p = plot.Profile(profiles, name="Density.png", h=15, w=15)
+h2 = h.get_halo(0)
+with centering_com(h2):
+    r200 = h2.properties['Halo_R_Crit200'].in_units('kpc')
+    print(r200)
+    profiles.append(pn.analysis.profile.Profile(h2.dm, ndim=3, 
+                                                nbins=140, min=0.1, max=25))
+    profiles.append(pn.analysis.profile.Profile(h2.dm, ndim=3, 
+                                                calc_x=lambda x: x['r'], 
+                                                nbins=140, min=0.1, max=25))
+    profiles.append(pn.analysis.profile.Profile(h2.dm, ndim=3, 
+                                                calc_x=lambda x: x['r']/r200, 
+                                                nbins=140, min=0.1, max=1.3))
+    profiles.append(pn.analysis.profile.Profile(h2.dm, ndim=3, 
+                                                calc_x=lambda x: np.log10(x['r']/r200),
+                                                nbins=140,min=-2,max=2))
+
+    #This illustrates a manual log binning procedure,
+    #since the one in pynbody does not seem to work.
+    prof = pn.analysis.profile.Profile(h2.dm, ndim=3,
+                                       bins=np.array([4*10**(i*0.078) for i in range(16)]))
+    plt.plot(np.log10(prof['rbins']/r200),prof['density'])
+    plt.savefig("QQQQQ.png")
+    
+p = plot.Profile(profiles, name="Density.png")
 p.set_all_properties(model='density_profile', yscale='log')
 p.plot_all("radius", "density")
-p.fit_and_plot_all('nfw')
+#p.fit_and_plot_all('nfw')
 p.savefig()
-"""
 
 #Shape
 """
