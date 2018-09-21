@@ -22,6 +22,9 @@ def do_all_objects(func):
 
 
 class _Plot():
+    """
+    Important: each individual object contained inside obj_list is meant to be converted into a plot, so in general each object will be a list of values.
+    """
     def __init__(self, obj_list, width, height, nrows, ncols, name=''):
         if type(obj_list) is not list:
             raise TypeError
@@ -94,11 +97,12 @@ class _Plot():
         self.set_title(title)
         model_options = ['density_profile', 
                          'mass_enc_profile', 
-                         'mass_profile']
+                         'mass_profile',
+                         'concentration_mass']
         if model not in model_options:
             raise ValueError('The specified model is not currently predefined.')
         if model!='None':
-            self.set_axis_all('R [kpc]', r'$\rho$ [M$_{\odot}$ kpc$^{-3}$]', xscale, yscale) if model=='density_profile' else self.set_axis_all('R [kpc]', r'M$_{enc}$ [M$_{\odot}$]', xscale, yscale) if model=='mass_enc_profile' else self.set_axis_all('R [kpc]', r'M [M$_{\odot}$]', xscale, yscale)
+            self.set_axis_all('R [kpc]', r'$\rho$ [M$_{\odot}$ kpc$^{-3}$]', xscale, yscale) if model=='density_profile' else self.set_axis_all('R [kpc]', r'M$_{enc}$ [M$_{\odot}$]', xscale, yscale) if model=='mass_enc_profile' else self.set_axis_all(r'M$_{200}$ [M$_{\odot}$]', r'concentration', xscale, yscale) if model=='concentration_mass' else self.set_axis_all('R [kpc]', r'M [M$_{\odot}$]', xscale, yscale)
         else:
             for i in range(self._nrows):
                 if self._N>2:
@@ -166,15 +170,16 @@ class Profile(_Plot):
         if function=='nfw':
             _fit = nfw_fit(self._p[idx])
             _func = NFWprofile.profile_functional_static(np.array(self._p[idx]['rbins']), 
-                                                         _fit[0][0], _fit[0][1])
+                                                         _fit[0], _fit[1])
             indexes = super()._set_axis_indexes(axis_idx)
             self._axis[indexes].plot(np.array(self._p[idx]['rbins']), 
-                                     _func(self._p[idx]), label='NFW fit')
+                                     _func, label='NFW fit')
             self._axis[indexes].legend()
 
     @do_all_objects
     def fit_and_plot_all(self, function='nfw', *args, **kwargs):
         self.fit_and_plot(kwargs['i_profile'], (kwargs['i'], kwargs['j']))
+
 
 class Shape(_Plot):
     """
@@ -182,13 +187,13 @@ class Shape(_Plot):
 
     Args:
     s: list of shape arrays for plotting, i.e., list of lists of pynbody shape objects
-    extra: list of some additional property common to all objects from which the shapes were taken
+    extra_var: list of some additional property common to all objects from which the shapes were taken
            for example: radius, mass
     """
-    def __init__(self, s, extra=[], w=10, h=9, nrows=0, ncols=0, name=''):
+    def __init__(self, s, extra_var=[], w=10, h=9, nrows=0, ncols=0, name=''):
         super().__init__(s, w, h, nrows, ncols, name)
         self._s = self._obj_list
-        self._extra = extra
+        self._extra_var = extra_var
         if nrows==0 or ncols==0:
             self._nrows, self._ncols = super()._geometry(self._N)
         self._fig, self._axis = plt.subplots(nrows=self._nrows, ncols=self._ncols, figsize=(w,h))
@@ -239,12 +244,52 @@ class Shape(_Plot):
                 return _s_for_plot[idx][_match[x_var]], _s_for_plot[idx][_match[y_var]]
             else: #either x or y are not contained inside the self._s object
                 if x_var not in _match.keys():
-                    return self._extra, _s_for_plot[idx][_match[y_var]]
+                    return self._extra_var, _s_for_plot[idx][_match[y_var]]
                 else:
-                    return _s_for_plot[idx][_match[x_var]], self._extra
+                    return _s_for_plot[idx][_match[x_var]], self._extra_var
 
         _x, _y = _define_vars(x_var, y_var)
         _sorted_lists = sorted(zip(_x,_y), key=lambda x: x[0])
         _x, _y = [[q[i] for q in _sorted_lists] for i in range(2)]
         indexes = super()._set_axis_indexes(axis_idx)
         self._axis[indexes].scatter(_x, _y)
+
+
+class Concentration(_Plot):
+    """
+    Plots all kinds of pynbody related concentrations.
+
+    Arguments:
+    c: list of lists of concentration values
+    extra_var: list of some additional property common to all objects from which the shapes were taken
+           for example: radius, mass
+    """
+    def __init__(self, c, extra_var=[], w=10, h=9, nrows=0, ncols=0, name=''):
+        super().__init__(c, w, h, nrows, ncols, name)
+        self._c = self._obj_list
+        self._extra_var = extra_var
+        if nrows==0 or ncols==0:
+            self._nrows, self._ncols = super()._geometry(self._N)
+        self._fig, self._axis = plt.subplots(nrows=self._nrows, ncols=self._ncols, figsize=(w,h))
+
+    def scatter_plot(self, idx, axis_idx, concentration_axis='y'):
+        """
+        Args:
+        1. 'idx': pynbody shape list object. It refers to the way self._s is ordered
+        2. 'axis_idx': axis index (int [self._N<=2] or tuple [self._N>2])
+        3. 'x_var': variable stored in the shape to plot as x variable
+            options: pos, b/a, c/a, align, rot, triax, m200, r200
+        4. 'y_var': variable stored in the profile to plot as y variable
+            options: pos, b/a, c/a, align, rot, triax, m200, r200
+        """
+        axis_options = ['x','y']
+        if concentration_axis not in axis_options:
+            raise ValueError('The axis you selected for plotting the concentration is not valid.')
+        if idx >= self._N:
+            raise ValueError('You cannot plot something that does not exist :)')
+        indexes = super()._set_axis_indexes(axis_idx)
+
+        if concentration_axis=='x':
+            self._axis[indexes].scatter(np.array(self._c[idx]), np.array(self._extra_var))
+        else:
+            self._axis[indexes].scatter(np.array(self._extra_var), np.array(self._c[idx]))

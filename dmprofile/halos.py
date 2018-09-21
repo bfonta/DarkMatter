@@ -46,8 +46,12 @@ class Halos():
         """
         return [self.get_subhalo(i, sub_idx) for i in range(self._N)]
 
-    def get_halos(self):
-        return self._halos
+    def get_halos(self, n=0):
+        """Returns the first 'n' halos."""
+        if n==0: n=self._N
+        if n>self._N:
+            raise("You are asking for too many halos.")
+        return self._halos[:n]
 
     def concentration_200(self, idx, sub='False', sub_idx=0):
         """

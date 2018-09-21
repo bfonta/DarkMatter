@@ -24,21 +24,28 @@ SubhalosFolder = "Test_NOSN_NOZCOOL_L010N0128/data/subhalos_103/subhalo_103"
 SnapshotFolder = "Test_NOSN_NOZCOOL_L010N0128/data/snapshot_103/snap_103"
 
 h = Halos(os.path.join(DataFolder,SubhalosFolder), HALO_NUMBER)
+halos = h.get_halos()
 
 #Concentration
-c = h.concentration_200(2)
-print(c)
+c, M200 = ([] for i in range(2))
+for i in range(2,22):
+    M200.append(halos[i].properties['Halo_M_Crit200'].in_units('Msol'))
+    c.append(h.concentration_200(i))
+c_obj = plot.Concentration([c, c], extra_var=M200, name='Concentration.png') 
+c_obj.set_all_properties(model='concentration_mass')
+c_obj.scatter_plot(0, (0,0))
+c_obj.scatter_plot(1, (1,0))
+c_obj.savefig()
 
 #Density
-""""
+"""
 profiles = []
-for i in range(2):
-    h0 = h.get_halo(2)
-    with Centering(h0).com():
-        profiles.append(pn.analysis.profile.Profile(h0.dm, ndim=3, nbins=250, min=1, max=35))
-
-p = plot.Profile(profiles, name="Density.png")
-p.set_all_properties(title='Density', model='density_profile', yscale='log')
+for i in range(2,22):
+    h0 = h.get_halo(i)
+    with centering_com(h0):
+        profiles.append(pn.analysis.profile.Profile(h0.dm, ndim=3, nbins=140, min=4, max=25))
+p = plot.Profile(profiles, name="Density.png", h=15, w=15)
+p.set_all_properties(model='density_profile', yscale='log')
 p.plot_all("radius", "density")
 p.fit_and_plot_all('nfw')
 p.savefig()
