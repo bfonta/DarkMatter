@@ -293,3 +293,60 @@ class Concentration(_Plot):
             self._axis[indexes].scatter(np.array(self._c[idx]), np.array(self._extra_var))
         else:
             self._axis[indexes].scatter(np.array(self._extra_var), np.array(self._c[idx]))
+
+
+class Relaxation(_Plot):
+    """
+    Args:
+    relax: list of pynbody relaxation arrays (obtained for example from dmprofile.halos.relaxation)
+    r: corresponding list of radius
+    """
+    def __init__(self, relax, radius, w=10, h=9, nrows=0, ncols=0, name=''):
+        super().__init__(relax, w, h, nrows, ncols, name)
+        self._relax = self._obj_list
+        self._radius = radius
+        if nrows==0 or ncols==0:
+            self._nrows, self._ncols = super()._geometry(self._N)
+        self._fig, self._axis = plt.subplots(nrows=self._nrows, ncols=self._ncols, figsize=(w,h))
+
+    def plot(self, idx, axis_idx, x=None, y=None):
+        """
+        Args:
+        'idx':  profile index (int)
+        'axis_idx': axis index (int [self._N<=2] or tuple [self._N>2])
+        'x' and 'y': data arrays
+        """
+        indexes = super()._set_axis_indexes(axis_idx)
+        if x==None and y==None:
+            self._axis[indexes].plot(self._radius[idx], self._relax[idx])
+        else:
+            self._axis[indexes].plot(x, y)
+
+    @do_all_objects
+    def plot_all(self, x, y, *args, **kwargs):
+        self.plot(kwargs['i_profile'], (kwargs['i'], kwargs['j']))
+
+    def intersect_and_plot(self, idx, axis_idx, intersect_value=1.):
+        indexes = super()._set_axis_indexes(axis_idx)
+        polyfit = np.polyfit(self._radius[idx], self._relax[idx], deg=3)
+        func = np.poly1d(polyfit)
+        x_new = np.linspace(self._radius[idx][0], self._radius[idx][-1], 1000)
+        y_new = func(x_new)
+        self._axis[indexes].plot(self._radius[idx], self._relax[idx], '.') 
+        self._axis[indexes].plot(x_new, y_new, markersize=1) #draw pseudo-line
+        
+        _intersect_idx = int(np.argwhere(np.diff(np.sign(y_new - intersect_value))).flatten()[0])
+        if type(_intersect_idx) != int:
+            raise TypeError('This index must be an integer.')
+        self._axis[indexes].plot([min(self._radius[idx]), max(self._radius[idx])], 
+                                 [intersect_value, intersect_value], color='r', linestyle='--')
+        self._axis[indexes].plot(x_new[_intersect_idx], intersect_value, 'ko')
+        print("POINT: ", x_new[_intersect_idx])
+        _half_bin = (self._radius[idx][1]-self._radius[idx][0])/2
+        self._axis[indexes].set_xlim([self._radius[idx][0] -_half_bin, 
+                                      self._radius[idx][-1] + _half_bin])
+        return x_new[_intersect_idx]
+
+    @do_all_objects
+    def intersect_and_plot_all(self, function='nfw', *args, **kwargs):
+        self.intersect_and_plot(kwargs['i_profile'], (kwargs['i'], kwargs['j']))

@@ -18,6 +18,7 @@ print("################Code is now running#############################")
 print("################################################################")
 
 HALO_NUMBER = 500
+BIN_NUMBER = 100
 
 DataFolder = "/fred/oz071/balves/"
 SubhalosFolder = "Test_NOSN_NOZCOOL_L010N0128/data/subhalos_103/subhalo_103"
@@ -38,36 +39,26 @@ c_obj.scatter_plot(0, (0,0))
 c_obj.scatter_plot(1, (1,0))
 c_obj.savefig()
 """
-#Density
-profiles = []
-h2 = h.get_halo(0)
-with centering_com(h2):
-    r200 = h2.properties['Halo_R_Crit200'].in_units('kpc')
-    print(r200)
-    profiles.append(pn.analysis.profile.Profile(h2.dm, ndim=3, 
-                                                nbins=140, min=0.1, max=25))
-    profiles.append(pn.analysis.profile.Profile(h2.dm, ndim=3, 
-                                                calc_x=lambda x: x['r'], 
-                                                nbins=140, min=0.1, max=25))
-    profiles.append(pn.analysis.profile.Profile(h2.dm, ndim=3, 
-                                                calc_x=lambda x: x['r']/r200, 
-                                                nbins=140, min=0.1, max=1.3))
-    profiles.append(pn.analysis.profile.Profile(h2.dm, ndim=3, 
-                                                calc_x=lambda x: np.log10(x['r']/r200),
-                                                nbins=140,min=-2,max=2))
 
-    #This illustrates a manual log binning procedure,
-    #since the one in pynbody does not seem to work.
-    prof = pn.analysis.profile.Profile(h2.dm, ndim=3,
-                                       bins=np.array([4*10**(i*0.078) for i in range(16)]))
-    plt.plot(np.log10(prof['rbins']/r200),prof['density'])
-    plt.savefig("QQQQQ.png")
-    
-p = plot.Profile(profiles, name="Density.png")
-p.set_all_properties(model='density_profile', yscale='log')
+#Density
+prof1 = h.get_profile(0, 'dm', bins=(3.5,25.,BIN_NUMBER), bin_type='log', normalize=False)
+prof2 = h.get_profile(0, 'dm', bins=(3.5,25.,BIN_NUMBER))            
+p = plot.Profile([prof1,prof2], name="Density.png")
+p.set_all_properties(model='density_profile')#, yscale='log')
 p.plot_all("radius", "density")
-#p.fit_and_plot_all('nfw')
+p.fit_and_plot_all('nfw')
 p.savefig()
+
+relax = h.relaxation(0,prof2)
+r = plot.Relaxation([relax,relax],
+                    [prof2['rbins'],prof2['rbins']])
+
+r.intersect_and_plot(0, (0,0), intersect_value=50)
+r.plot(1, (1,0))
+r.savefig('Relaxation.png')
+
+#This illustrates a manual log binning procedure,
+#np.array([4*10**(i*0.078) for i in range(16)])
 
 #Shape
 """
