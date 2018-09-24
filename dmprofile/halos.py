@@ -1,4 +1,5 @@
 import os, warnings
+import numpy as np
 import pynbody as pn
 import pynbody.units as u
 from dmprofile.fit import nfw_fit
@@ -9,15 +10,17 @@ class Halos():
     Halos management
     """
     def __init__(self, filename, N):
+        print("check")
         self.filename = filename
         s = pn.load(os.path.join(self.filename))
         s['eps'] = 200.*pn.units.pc
         s.physical_units() #concentration will be wrong if this line is removed
-
+        print("check2")
         if N>len(s): 
             warnings.warn("The specified halo number is larger than the number of halos in the simulation box.")
         self._N = N
         self._halos = s.halos()[:self._N]
+        print("check3")
 
     def _check_subhalo_exists(self, halo_idx):
         if self._halos[halo_idx].properties['NsubPerHalo'] == 0:
@@ -46,12 +49,8 @@ class Halos():
         """
         return [self.get_subhalo(i, sub_idx) for i in range(self._N)]
 
-    def get_halos(self, n=0):
-        """Returns the first 'n' halos."""
-        if n==0: n=self._N
-        if n>self._N:
-            raise("You are asking for too many halos.")
-        return self._halos[:n]
+    def get_halos(self):
+        return self._halos
 
     def concentration_200(self, idx, sub='False', sub_idx=0):
         """
@@ -67,7 +66,6 @@ class Halos():
             print(_r200, _rs)
         return _r200/_rs
       
-
     def concentrations_200(self, sub='False', sub_idx=0, n=None):
         """
         Calculates the first 'n' concentrations at r200. Returns a list.
@@ -75,3 +73,46 @@ class Halos():
         if n==None: 
             n = self._N
         return [self.concentration_200(i, sub, sub_idx) for i in range(n)]
+
+    def get_profile(self, idx, component, bins, bin_type='linear', normalize=False, centering=True):
+        """
+        Obtain the profile of a single halo.
+        Arguments:
+        'idx': which halo to get the profile from
+        'component': 'dm', 'stars', 'gas' or 'all'
+        'bins': tuple with (start,stop,nbins)
+        'bin_type': either 'linear' or 'log'
+        'normalize': 'None' for no normalization and 'r200' for normalization
+        'centering': whether to centre the halo before obtaining the profile or not
+        """
+        h = self.get_halo(idx)
+        if centering:
+            centering_com(h)
+        
+        components = {'dm':h.dm, 'stars':h.s, 'gas': h.g, 'all': h}
+        if component not in components:
+            raise ValueError('The specified component does not exist.')
+        if type(bins) is not tuple or len(bins) != 3:
+            raise TypeError('Please insert bins with the following pattern: (start, stop, nbins).')
+        
+        if normalize:
+            r200 = h.properties['Halo_R_Crit200'].in_units('kpc')
+            calc_x = lambda x: x['r']/r200
+        else:
+            r200 = 1.
+            calc_x = lambda x: x['r']
+            
+        if bin_type=='linear':
+            return pn.analysis.profile.Profile(components[component],
+                                               calc_x = calc_x,
+                                               ndim=3, 
+                                               bins=r200*np.linspace(bins[0],bins[1],bins[2]))
+        elif bin_type=='log':
+            return pn.analysis.profile.Profile(components[component], 
+                                               calc_x = calc_x,
+                                               ndim=3, 
+                                               bins=np.logspace(np.log10(bins[0]),
+                                                                     np.log10(bins[1]),
+                                                                     bins[2]))
+        else:
+            raise ValueError('The specified bin type does not exist.')
