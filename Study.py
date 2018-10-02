@@ -1,9 +1,11 @@
 #QUESTIONS:
 #the scale radius of the subhalos is the same as the scale radius of the halos
+#do I center on the halo or instead on the main subhalo?
 
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 import pynbody as pn
 import pynbody.plot.sph as sph
@@ -32,6 +34,84 @@ h = Halos(os.path.join(DataFolder,SubhalosFolder), HALO_NUMBER)
 halos = h.get_halos()
 subhalos = h.get_subhalos()
 
+#Filtering
+halo = halos[2]
+sub = subhalos[2]
+assert sub==halo.sub[0]
+
+with centering_com(halo):
+    r200 = halo.properties['Halo_R_Crit200'].in_units('kpc')
+    sphere = sub[pn.filt.Sphere(1.2*r200,pn.analysis.halo.center_of_mass(sub))]
+    small_sphere = sub[pn.filt.Sphere(0.6*r200,pn.analysis.halo.center_of_mass(sub))]
+    x, y, z = sphere['x'], sphere['y'], sphere['z']
+    xx, yy, zz = small_sphere['x'], small_sphere['y'], small_sphere['z']
+    x_s, y_s, z_s = sub['x'], sub['y'], sub['z']
+    x_h, y_h, z_h = halo['x'], halo['y'], halo['z']
+
+    fig, axis = plt.subplots(nrows=2, ncols=2)
+    axis[0,0].plot(x, y, marker='.', linestyle='None', label='Sphere filter', color='b')
+    axis[0,0].legend()
+    axis[0,0].set_xlim([-35,35])
+    axis[0,0].set_ylim([-35,35])
+    axis[0,1].plot(x_s, y_s, marker='.', linestyle='None', label='Main subhalo', color='g')
+    axis[0,1].legend()
+    axis[0,1].set_xlim([-35,35])
+    axis[0,1].set_ylim([-35,35])
+    axis[1,0].plot(x_h, y_h, marker='.', linestyle='None', label='Halo', color='orange')
+    axis[1,0].legend()
+    axis[1,0].set_xlim([-35,35])
+    axis[1,0].set_ylim([-35,35])
+    axis[1,1].plot(xx, yy, marker='.', linestyle='None', label='Smaller sphere', color='brown')
+    axis[1,1].legend()
+    axis[1,1].set_xlim([-35,35])
+    axis[1,1].set_ylim([-35,35])
+    plt.savefig("Filtering_xy.png")
+
+    fig, axis = plt.subplots(nrows=2, ncols=2)
+    axis[0,0].plot(x, z, marker='.', linestyle='None', label='Sphere filter', color='b')
+    axis[0,0].legend()
+    axis[0,0].set_xlim([-50,50])
+    axis[0,0].set_ylim([-50,50])
+    axis[0,1].plot(x_s, z_s, marker='.', linestyle='None', label='Main subhalo', color='g')
+    axis[0,1].legend()
+    axis[0,1].set_xlim([-50,50])
+    axis[0,1].set_ylim([-50,50])
+    axis[1,0].plot(x_h, z_h, marker='.', linestyle='None', label='Halo', color='orange')
+    axis[1,0].legend()
+    axis[1,0].set_xlim([-50,50])
+    axis[1,0].set_ylim([-50,50])
+    axis[1,1].plot(xx, zz, marker='.', linestyle='None', label='Smaller sphere', color='brown')
+    axis[1,1].legend()
+    axis[1,1].set_xlim([-50,50])
+    axis[1,1].set_ylim([-50,50])
+    plt.savefig("Filtering_xz.png")
+
+    fig = plt.figure(figsize=(13,11))
+    axis = fig.add_subplot(2, 2, 1, projection='3d')
+    axis.scatter(x, y, z, zdir='z', label="Sphere filter", color='b')
+    axis.legend()
+    axis.set_xlim([-40,40])
+    axis.set_ylim([-40,40])
+    axis.set_zlim([-40,40])
+    axis = fig.add_subplot(2, 2, 2, projection='3d')
+    axis.scatter(x_s, y_s, z_s, zdir='z', label="Main subhalo", color='g')
+    axis.legend()
+    axis.set_xlim([-40,40])
+    axis.set_ylim([-40,40])
+    axis.set_zlim([-40,40])
+    axis = fig.add_subplot(2, 2, 3, projection='3d')
+    axis.scatter(x_h, y_h, z_h, zdir='z', label="Halo", color='orange')
+    axis.legend()
+    axis.set_xlim([-40,40])
+    axis.set_ylim([-40,40])
+    axis.set_zlim([-40,40])
+    axis = fig.add_subplot(2, 2, 4, projection='3d')
+    axis.scatter(xx, yy, zz, zdir='z', label="Smaller sphere", color='brown')
+    axis.legend()
+    axis.set_xlim([-40,40])
+    axis.set_ylim([-40,40])
+    axis.set_zlim([-40,40])
+    plt.savefig("3D.png")
 #Concentration
 """
 c, M200, res, rel = ([] for i in range(4))
