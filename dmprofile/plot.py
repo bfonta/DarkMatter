@@ -1,11 +1,13 @@
 import matplotlib
 matplotlib.use('Agg')
+import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 import numpy as np
 import itertools, collections
 
 from pynbody.analysis.theoretical_profiles import NFWprofile
 from dmprofile.fit import nfw_fit
+from dmprofile.utilities import intersect, is_list_empty
 
 #decorator: applies the same function to all objects in _Plot._obj_list
 def do_all_objects(func):
@@ -95,14 +97,18 @@ class _Plot():
         model options: 'density_profile', 'mass_enc_profile', 'mass_profile'
         """
         self.set_title(title)
+        scale_options = ['linear', 'log']
+        if xscale not in scale_options or yscale not in scale_options:
+            raise ValueError('The selected scale is not supported.')
         model_options = ['density_profile', 
                          'mass_enc_profile', 
                          'mass_profile',
-                         'concentration_mass']
+                         'concentration_mass',
+                         'relaxation']
         if model not in model_options:
             raise ValueError('The specified model is not currently predefined.')
         if model!='None':
-            self.set_axis_all('R [kpc]', r'$\rho$ [M$_{\odot}$ kpc$^{-3}$]', xscale, yscale) if model=='density_profile' else self.set_axis_all('R [kpc]', r'M$_{enc}$ [M$_{\odot}$]', xscale, yscale) if model=='mass_enc_profile' else self.set_axis_all(r'M$_{200}$ [M$_{\odot}$]', r'concentration', xscale, yscale) if model=='concentration_mass' else self.set_axis_all('R [kpc]', r'M [M$_{\odot}$]', xscale, yscale)
+            self.set_axis_all('R [kpc]', r'$\rho$ [M$_{\odot}$ kpc$^{-3}$]', xscale, yscale) if model=='density_profile' else self.set_axis_all('R [kpc]', r'M$_{enc}$ [M$_{\odot}$]', xscale, yscale) if model=='mass_enc_profile' else self.set_axis_all(r'M$_{200}$ [M$_{\odot}$]', r'c$_{200}$', xscale, yscale) if model=='concentration_mass' else self.set_axis_all('R [kpc]', r't$_{relax}(R)$/t$_{circ}$(r$_{200}$)', xscale, yscale) if model=='relaxation' else self.set_axis_all('R [kpc]', r'M [M$_{\odot}$]', xscale, yscale)
         else:
             for i in range(self._nrows):
                 if self._N>2:
@@ -180,6 +186,26 @@ class Profile(_Plot):
     def fit_and_plot_all(self, function='nfw', *args, **kwargs):
         self.fit_and_plot(kwargs['i_profile'], (kwargs['i'], kwargs['j']))
 
+        
+    def draw_line(self, idx, axis_idx, value, orientation='vertical', label='Relaxation radius'):
+        """
+        Arguments:
+        'idx': profile index
+        'axis_idx' index of the axis where the line will be plotted
+        'value': value at which will be plotted; it is related to the 'orientation' option
+        """
+        indexes = super()._set_axis_indexes(axis_idx)
+        _xmin, _xmax = self._axis[indexes].get_xbound()
+        _ymin, _ymax = self._axis[indexes].get_ybound()
+        if orientation=='vertical':
+            self._axis[indexes].plot([value,value],[_ymin,_ymax], 
+                                     linestyle='--', color='grey', label=label)
+        elif orientation=='horizontal':
+            self._axis[indexes].plot([_xmin,_xmax],[value,value],
+                                     linestyle='--', color='grey', label=label)
+        else:
+            raise ValueError('The specified orientation is not supported.')
+        self._axis[indexes].legend()
 
 class Shape(_Plot):
     """
@@ -216,7 +242,7 @@ class Shape(_Plot):
             _snew.append([_a,_b,_c,_d,_e,_f])
         return _snew
 
-    def scatter_plot(self, idx, axis_idx, x_var, y_var):
+    def scatter_plot(self, idx, axis_idx, x_var, y_var, resolved_bools=[], relaxed_bools=[]):
         """
         Args:
         1. 'idx': pynbody shape list object. It refers to the way self._s is ordered
@@ -226,6 +252,9 @@ class Shape(_Plot):
         4. 'y_var': variable stored in the profile to plot as y variable
             options: pos, b/a, c/a, align, rot, triax, m200, r200
         """
+        handles = []
+        indexes = super()._set_axis_indexes(axis_idx)
+
         def _define_vars(x_var, y_var):
             """
             Defines which arrays are to be plotted according to user input.
@@ -248,11 +277,32 @@ class Shape(_Plot):
                 else:
                     return _s_for_plot[idx][_match[x_var]], self._extra_var
 
+        if not is_list_empty(resolved_bools):
+            grey = (0.2,0.2,0.2)
+            lightgrey = (0.6,0.6,0.6)
+            resolution_colors = [lightgrey if resolved_bools[i]==False else grey for i in range(len(self._s[idx]))]
+            handles.append(mpatches.Patch(color=lightgrey, label='unresolved structures'))
+            handles.append(mpatches.Patch(color=grey, label='resolved structures'))
+        else:
+            resolution_colors = [(0.4,0.4,0.4)]*len(self._s[idx])
+
+        if not is_list_empty(relaxed_bools):
+            relaxation_markers = ['o' if relaxed_bools[i]==False else 'v' for i in range(len(self._s[idx]))]  
+            handles.append(plt.plot([],[], marker='o',ms=8,c='k',
+                                    linestyle='None',label='unrelaxed structure')[0])
+            handles.append(plt.plot([],[], marker='v',ms=8,c='k',
+                                    linestyle='None',label='relaxed structure')[0])
+            
+            self._axis[indexes].legend(handles=handles)
+        else:
+            relaxation_markers = ['v']*len(self._s[idx])
+        
         _x, _y = _define_vars(x_var, y_var)
         _sorted_lists = sorted(zip(_x,_y), key=lambda x: x[0])
         _x, _y = [[q[i] for q in _sorted_lists] for i in range(2)]
-        indexes = super()._set_axis_indexes(axis_idx)
-        self._axis[indexes].scatter(_x, _y)
+        
+        for xp, yp, c, m in zip(_x, _y, resolution_colors, relaxation_markers):
+            self._axis[indexes].scatter(xp, yp, c=c, marker=m)
 
 
 class Concentration(_Plot):
@@ -272,28 +322,45 @@ class Concentration(_Plot):
             self._nrows, self._ncols = super()._geometry(self._N)
         self._fig, self._axis = plt.subplots(nrows=self._nrows, ncols=self._ncols, figsize=(w,h))
 
-    def scatter_plot(self, idx, axis_idx, concentration_axis='y'):
+    def scatter_plot(self, idx, axis_idx, concentration_axis='y', 
+                     resolved_bools=[], relaxed_bools=[]):
         """
         Args:
-        1. 'idx': pynbody shape list object. It refers to the way self._s is ordered
-        2. 'axis_idx': axis index (int [self._N<=2] or tuple [self._N>2])
-        3. 'x_var': variable stored in the shape to plot as x variable
-            options: pos, b/a, c/a, align, rot, triax, m200, r200
-        4. 'y_var': variable stored in the profile to plot as y variable
-            options: pos, b/a, c/a, align, rot, triax, m200, r200
+        'resolved_bools': Resolved halos. The order refers to the concentration array included when calling the class constructor.
+        'relaxed_bools': Relaxed halos. The order refers to the concentration array included when calling the class constructor.
         """
         axis_options = ['x','y']
+        handles = []
         if concentration_axis not in axis_options:
             raise ValueError('The axis you selected for plotting the concentration is not valid.')
         if idx >= self._N:
             raise ValueError('You cannot plot something that does not exist :)')
         indexes = super()._set_axis_indexes(axis_idx)
-
-        if concentration_axis=='x':
-            self._axis[indexes].scatter(np.array(self._c[idx]), np.array(self._extra_var))
+        
+        if not is_list_empty(resolved_bools):
+            grey = (0.2,0.2,0.2)
+            lightgrey = (0.6,0.6,0.6)
+            resolution_colors = [lightgrey if resolved_bools[i]==False else grey for i in range(len(self._c[idx]))]
+            handles.append(mpatches.Patch(color=lightgrey, label='unresolved structures'))
+            handles.append(mpatches.Patch(color=grey, label='resolved structures'))
         else:
-            self._axis[indexes].scatter(np.array(self._extra_var), np.array(self._c[idx]))
+            resolution_colors = [(0.4,0.4,0.4)]*len(self._c[idx])
 
+        if not is_list_empty(relaxed_bools):
+            relaxation_markers = ['o' if relaxed_bools[i]==False else 'v' for i in range(len(self._c[idx]))]  
+            handles.append(plt.plot([],[], marker='o',ms=8,c='k',
+                                    linestyle='None',label='unrelaxed structure')[0])
+            handles.append(plt.plot([],[], marker='v',ms=8,c='k',
+                                    linestyle='None',label='relaxed structure')[0])
+            
+            self._axis[indexes].legend(handles=handles)
+        else:
+            relaxation_markers = ['v']*len(self._c[idx])
+        for xp, yp, c, m in zip(self._c[idx], self._extra_var, resolution_colors, relaxation_markers):
+            if concentration_axis=='x':
+                self._axis[indexes].scatter(xp, yp, c=c, marker=m)
+            else:
+                self._axis[indexes].scatter(yp, xp, c=c, marker=m)
 
 class Relaxation(_Plot):
     """
@@ -328,24 +395,29 @@ class Relaxation(_Plot):
 
     def intersect_and_plot(self, idx, axis_idx, intersect_value=1.):
         indexes = super()._set_axis_indexes(axis_idx)
-        polyfit = np.polyfit(self._radius[idx], self._relax[idx], deg=3)
-        func = np.poly1d(polyfit)
-        x_new = np.linspace(self._radius[idx][0], self._radius[idx][-1], 1000)
-        y_new = func(x_new)
+        degree = 5
         self._axis[indexes].plot(self._radius[idx], self._relax[idx], '.') 
-        self._axis[indexes].plot(x_new, y_new, markersize=1) #draw pseudo-line
-        
-        _intersect_idx = int(np.argwhere(np.diff(np.sign(y_new - intersect_value))).flatten()[0])
-        if type(_intersect_idx) != int:
-            raise TypeError('This index must be an integer.')
+        _intersect_x = intersect(x=self._radius[idx], y=self._relax[idx], deg=degree)
+        _polyfit = np.polyfit(self._radius[idx], self._relax[idx], deg=degree)
+        _func = np.poly1d(_polyfit)
+        _x_new = np.linspace(self._radius[idx][0], self._relax[idx][-1], 10000)
+        _y_new = _func(_x_new)
+        self._axis[indexes].plot(_x_new, _y_new, markersize=1, label='polynomial fit') #draw pseudo-line
         self._axis[indexes].plot([min(self._radius[idx]), max(self._radius[idx])], 
-                                 [intersect_value, intersect_value], color='r', linestyle='--')
-        self._axis[indexes].plot(x_new[_intersect_idx], intersect_value, 'ko')
-        print("POINT: ", x_new[_intersect_idx])
-        _half_bin = (self._radius[idx][1]-self._radius[idx][0])/2
-        self._axis[indexes].set_xlim([self._radius[idx][0] -_half_bin, 
-                                      self._radius[idx][-1] + _half_bin])
-        return x_new[_intersect_idx]
+                                 [intersect_value, intersect_value], 
+                                 color='r', linestyle='--', 
+                                 label=r't$_{relax}(R)$/t$_{circ}$(r$_{200}$) = '+str(intersect_value))
+        _half_bin_radius = (self._radius[idx][1]-self._radius[idx][0])/2
+        _half_bin_relax = (self._relax[idx][1]-self._relax[idx][0])/2
+        _text_idx = len(self._relax[idx])-int(len(self._relax[idx])/4)
+        if _intersect_x[1]==True: #if there was an intersection
+            self._axis[indexes].plot(_intersect_x[0], intersect_value, 'ko')
+            self._axis[indexes].annotate('Intersection at x='+str(np.round_(_intersect_x[0],3)), xy=(0.015,0.75), xycoords='axes fraction')
+        self._axis[indexes].set_xlim([self._radius[idx][0] -_half_bin_radius, 
+                                      self._radius[idx][-1] + _half_bin_radius])
+        self._axis[indexes].set_ylim([self._relax[idx][0] + _half_bin_relax, 
+                                      self._relax[idx][-1] - _half_bin_relax])
+        self._axis[indexes].legend()
 
     @do_all_objects
     def intersect_and_plot_all(self, function='nfw', *args, **kwargs):
