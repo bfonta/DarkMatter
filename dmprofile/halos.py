@@ -22,7 +22,7 @@ class Halos():
             warnings.warn("The specified halo number is larger than the number of halos in the simulation box.")
         self._N = N
         self._halos = _s.halos()[:self._N]
-        self._halos_bak = self._halos #backup
+        self._halos_bak = self._halos #halos backup
 
         #backup for subhalos (id, subhalo): 
         #the id is helpful because each halo can have more than one subhalo
@@ -42,6 +42,14 @@ class Halos():
             return self._halos[idx]==self._halos_bak[idx]
         else:
             return self._subhalos[idx][sub_idx]==self._subhalos_bak[idx][sub_idx]
+
+    def restore(self, idx, sub_idx=-1):
+        if idx >= self._N: raise ValueError('The halo index is too large.')
+        if type(idx) != int or type(sub_idx) != int: raise TypeError('The indexes must be integers.')
+        if sub_idx<0:
+            self._halos[idx], self._halos_bak[idx] = self._halos_bak[idx], self._halos[idx]
+        else:
+            self._subhalos[idx][sub_idx], self._subhalos_bak[idx][sub_idx] = self._subhalos_bak[idx][sub_idx], self._subhalos[idx][sub_idx]
 
     def filter_(self, halo_idxs, sub_idx=-1, filter_str='Sphere_1.2', option=None):
         """
@@ -211,7 +219,6 @@ class Halos():
                 calc_x = lambda x: x['r']
             
             if bin_type=='linear':
-                print("---", len(_h.dm))
                 return pn.analysis.profile.Profile(components[component],
                                                    calc_x = calc_x,
                                                    ndim=3, 
