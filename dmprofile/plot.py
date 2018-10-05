@@ -94,13 +94,15 @@ class _Plot():
                        xlabel='R [kpc]', ylabel=None, 
                        xscale='linear', yscale='linear'):
         """
-        model options: 'density_profile', 'mass_enc_profile', 'mass_profile'
+        model options: 'density_profile', 'mass_enc_profile', 'mass_profile',
+                       'density_enc_profile', 'relaxation', 'concentration_mass'
         """
         self.set_title(title)
         scale_options = ['linear', 'log']
         if xscale not in scale_options or yscale not in scale_options:
             raise ValueError('The selected scale is not supported.')
         model_options = ['density_profile', 
+                         'density_enc_profile',
                          'mass_enc_profile', 
                          'mass_profile',
                          'concentration_mass',
@@ -108,7 +110,7 @@ class _Plot():
         if model not in model_options:
             raise ValueError('The specified model is not currently predefined.')
         if model!='None':
-            self.set_axis_all('R [kpc]', r'$\rho$ [M$_{\odot}$ kpc$^{-3}$]', xscale, yscale) if model=='density_profile' else self.set_axis_all('R [kpc]', r'M$_{enc}$ [M$_{\odot}$]', xscale, yscale) if model=='mass_enc_profile' else self.set_axis_all(r'M$_{200}$ [M$_{\odot}$]', r'c$_{200}$', xscale, yscale) if model=='concentration_mass' else self.set_axis_all('R [kpc]', r't$_{relax}(R)$/t$_{circ}$(r$_{200}$)', xscale, yscale) if model=='relaxation' else self.set_axis_all('R [kpc]', r'M [M$_{\odot}$]', xscale, yscale)
+            self.set_axis_all('R [kpc]', r'$\rho$ [M$_{\odot}$ kpc$^{-3}$]', xscale, yscale) if model=='density_profile' else self.set_axis_all('R [kpc]', r'$\rho_{enc}$ [M$_{\odot}$ kpc$^{-3}$]', xscale, yscale) if model=='density_enc_profile' else self.set_axis_all('R [kpc]', r'M$_{enc}$ [M$_{\odot}$]', xscale, yscale) if model=='mass_enc_profile' else self.set_axis_all(r'M$_{200}$ [M$_{\odot}$]', r'c$_{200}$', xscale, yscale) if model=='concentration_mass' else self.set_axis_all('R [kpc]', r't$_{relax}(R)$/t$_{circ}$(r$_{200}$)', xscale, yscale) if model=='relaxation' else self.set_axis_all('R [kpc]', r'M [M$_{\odot}$]', xscale, yscale)
         else:
             for i in range(self._nrows):
                 if self._N>2:
@@ -152,13 +154,15 @@ class Profile(_Plot):
             options: radius, mass, mass_enc, density
         """
         def _define_vars(x_var, y_var):
-            _translate = {'radius': 'rbins',
-                          'mass': 'mass',
-                          'mass_enc': 'mass_enc',
-                          'density': 'density'}
+            _translate = {'radius': self._p[idx]['rbins'],
+                          'mass': self._p[idx]['mass'],
+                          'mass_enc': self._p[idx]['mass_enc'],
+                          'density': self._p[idx]['density'],
+                          'density_enc': (3*self._p[idx]['mass_enc'])
+                          /(4*np.pi*np.power(self._p[idx]['rbins'],3))}
             if x_var not in _translate.keys() or y_var not in _translate.keys():
                 raise ValueError
-            return self._p[idx][_translate[x_var]], self._p[idx][_translate[y_var]]
+            return _translate[x_var], _translate[y_var]
 
         _x, _y = _define_vars(x_var, y_var)
         indexes = super()._set_axis_indexes(axis_idx)
@@ -187,22 +191,23 @@ class Profile(_Plot):
         self.fit_and_plot(kwargs['i_profile'], (kwargs['i'], kwargs['j']))
 
         
-    def draw_line(self, idx, axis_idx, value, orientation='vertical', label='Relaxation radius'):
+    def draw_line(self, axis_idx, value, orientation='v', label='---', color='grey', 
+                  linestyle = '--'):
         """
         Arguments:
         'idx': profile index
         'axis_idx' index of the axis where the line will be plotted
-        'value': value at which will be plotted; it is related to the 'orientation' option
+        'value': value at which will be plotted; it is related to the 'orientation' option ('v' or 'h')
         """
         indexes = super()._set_axis_indexes(axis_idx)
         _xmin, _xmax = self._axis[indexes].get_xbound()
         _ymin, _ymax = self._axis[indexes].get_ybound()
-        if orientation=='vertical':
+        if orientation=='v':
             self._axis[indexes].plot([value,value],[_ymin,_ymax], 
-                                     linestyle='--', color='grey', label=label)
-        elif orientation=='horizontal':
+                                     linestyle=linestyle, color=color, label=label)
+        elif orientation=='h':
             self._axis[indexes].plot([_xmin,_xmax],[value,value],
-                                     linestyle='--', color='grey', label=label)
+                                     linestyle=linestyle, color=color, label=label)
         else:
             raise ValueError('The specified orientation is not supported.')
         self._axis[indexes].legend()

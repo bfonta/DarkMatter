@@ -91,15 +91,15 @@ class Halos():
                 with centering_com(self._halos[i]):
                     self._halos[i] = self._halos[i][_filter_func(_r200, _split_values, 
                                                                  self._halos[i])]
-            else: #filter the subhalo
+            else: #filter the halo but centered in the subhalo
                 if not self._check_backup(i):
                     raise warnings.warn('This subhalo backup is already being used!')
                 if self._subhalos[i][sub_idx][0] != sub_idx:
                     raise RuntimeError('Different subhalos are being mixed!')
                 self._subhalos_bak[i][sub_idx] = self._subhalos[i][sub_idx]
-                with centering_com(self._halos[i]):
-                    _subhalo = self._subhalos[i][sub_idx][1][_filter_func(_r200, _split_values, 
-                                                                          self._subhalos[i][sub_idx][1])]
+                with centering_com(self._subhalos[i][sub_idx][1]):
+                    _subhalo = self._halos[i][_filter_func(_r200, _split_values, 
+                                                           self._subhalos[i][sub_idx][1])]
                     self._subhalos[i][sub_idx] = (sub_idx,_subhalo)
 
 
@@ -183,18 +183,20 @@ class Halos():
             n = self._N
         return [self.concentration_200(i, sub, sub_idx) for i in range(n)]
 
-    def get_profile(self, idx, component, bins, bin_type='linear', normalize=False):
+    def get_profile(self, idx, sub_idx=-1, component='dm', 
+                    bins=(1,45,30), bin_type='linear', normalize=False):
         """
         Obtain the profile of a single halo.
         Arguments:
         'idx': which halo to get the profile from
+        'sub_idx': which subhalo to get the profile from
         'component': 'dm', 'stars', 'gas' or 'all'
         'bins': tuple with (start,stop,nbins)
         'bin_type': either 'linear' or 'log'
         'normalize': 'None' for no normalization and 'r200' for normalization
         'centering': whether to centre the halo before obtaining the profile or not
         """
-        _h = self._halos[idx]
+        _h = self._halos[idx] if sub_idx<0 else self._subhalos[idx][sub_idx][1]
         with centering_com(_h):
             components = {'dm':_h.dm, 'stars':_h.s, 'gas':_h.g, 'all':_h}
             if component not in components:
@@ -203,12 +205,13 @@ class Halos():
                 raise TypeError('Please insert bins with the following pattern: (start, stop, nbins).')
         
             if normalize:
-                r200 = _h.properties['Halo_R_Crit200'].in_units('kpc')
+                r200 = self._get_r200(idx)
                 calc_x = lambda x: x['r']/r200
             else:
                 calc_x = lambda x: x['r']
             
             if bin_type=='linear':
+                print("---", len(_h.dm))
                 return pn.analysis.profile.Profile(components[component],
                                                    calc_x = calc_x,
                                                    ndim=3, 
