@@ -24,7 +24,7 @@ print("################Code is now running#############################")
 print("################################################################")
 
 HALO_NUMBER = 497 #after this the main halo has no subhalos
-BIN_NUMBER = 500
+BIN_NUMBER = 100
 
 DataFolder = "/fred/oz071/balves/"
 SubhalosFolder = "Test_NOSN_NOZCOOL_L010N0128/data/subhalos_103/subhalo_103"
@@ -34,35 +34,35 @@ h = Halos(os.path.join(DataFolder,SubhalosFolder), HALO_NUMBER)
 
 #Filtering
 halo_idx = 0
-hhh = h.get_halo(halo_idx)
+#hhh = h.get_halo(halo_idx)
 
-centering_com(hhh)
-h.filter_(halo_idx, filter_str='Sphere_1.2')
+#centering_com(hhh)
+#h.filter_(halo_idx, filter_str='Sphere_1.2')
 r200_1 = h.get_halo(halo_idx).properties['Halo_R_Crit200'].in_units('kpc')
-prof1 = h.get_profile(halo_idx, 'dm', bins=(10,45,BIN_NUMBER), bin_type='linear', normalize=False)
-h.filter_(halo_idx, filter_str='Sphere_1.')
+prof1 = h.get_profile(0, component='dm', bins=(2.5,30,BIN_NUMBER), bin_type='log', normalize=False)
+#h.filter_(halo_idx, filter_str='Sphere_1.')
 r200_2 = h.get_halo(halo_idx).properties['Halo_R_Crit200'].in_units('kpc')
-prof2 = h.get_profile(halo_idx, 'dm', bins=(10,45,BIN_NUMBER), bin_type='linear', normalize=False)
+prof2 = h.get_profile(2, component='dm', bins=(10,20,30), bin_type='log', normalize=False)
 
 #subhalo = h.get_subhalo(0)
-print(hhh.properties['Halo_R_Crit200'].in_units('kpc'))
+#print(hhh.properties['Halo_R_Crit200'].in_units('kpc'))
 print(prof1['density'])
 print('-----')
 print(prof2['density'])
 print('-----')
-rhoz = pn.array.SimArray(pn.analysis.cosmology.rho_crit(hhh, unit="Msol kpc**-3"), "Msol kpc**-3")
-print(rhoz)
-print(rhoz*200)
+#rhoz = pn.array.SimArray(pn.analysis.cosmology.rho_crit(hhh, unit="Msol kpc**-3"), "Msol kpc**-3")
+#print(rhoz)
+#print(rhoz*200)
 profiles = [prof1,prof2]
 
-p = plot.Profile(profiles, name="Density.png")
+p = plot.Profile(profiles, name="Density.png", h=9, w=8)
 p.set_all_properties(model='density_profile', xscale='log', yscale='log')
 p.plot_all("radius", "density")
-p.draw_line((0,0), rhoz*200, 'h', label=r'$\rho_{crit}$', color='red')
-p.draw_line((0,0), r200_1, 'v', label=r'r$_{200}$')
-p.draw_line((1,0), rhoz*200, 'h',label=r'$\rho_{crit}$', color='red')
-p.draw_line((1,0), r200_2, 'v',label=r'r$_{200}$')
-#p.fit_and_plot_all('nfw')
+#p.draw_line((0,0), rhoz*200, 'h', label=r'$\rho_{crit}$', color='red')
+#p.draw_line((0,0), r200_1, 'v', label=r'r$_{200}$')
+#p.draw_line((1,0), rhoz*200, 'h',label=r'$\rho_{crit}$', color='red')
+#p.draw_line((1,0), r200_2, 'v',label=r'r$_{200}$')
+p.fit_and_plot_all('nfw')
 p.savefig()
 
 """
