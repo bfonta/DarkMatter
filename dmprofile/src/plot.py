@@ -2,12 +2,13 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import itertools, collections
 
 from pynbody.analysis.theoretical_profiles import NFWprofile
-from dmprofile.fit import nfw_fit
-from dmprofile.utilities import intersect, is_list_empty
+from .fit import nfw_fit
+from .utilities import intersect, is_list_empty
 
 #decorator: applies the same function to all objects in _Plot._obj_list
 def do_all_objects(func):

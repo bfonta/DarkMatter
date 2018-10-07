@@ -1,4 +1,8 @@
 import numpy as np
+import pynbody as pn
+
+def rho_crit():
+    return pn.array.SimArray(pn.analysis.cosmology.rho_crit(halo, unit="Msol kpc**-3"), "Msol kpc**-3")
 
 def intersect(x=[], y=[], intersect_value=1., deg=1):
     """

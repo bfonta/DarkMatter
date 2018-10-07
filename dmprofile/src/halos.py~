@@ -1,13 +1,12 @@
-#MISSING: Add methods to retrieve the halos and subhalos stored in backup
-
 import os, warnings
 import numpy as np
 import pynbody as pn
 import pynbody.units as u
 from pynbody.analysis.halo import center_of_mass as com
-from dmprofile.fit import nfw_fit
-from dmprofile.utilities import intersect
-from dmprofile.move import centering_com
+
+from src.fit import nfw_fit
+from src.utilities import intersect
+from src.move import centering_com
 
 class Halos():
     """
@@ -176,7 +175,7 @@ class Halos():
 
         with centering_com(self._halos[idx]):
             #we always use the main halo for the r200 distance, even for subhalos
-            _r200 = _get_r200(idx)
+            _r200 = self._get_r200(idx)
             _profile = pn.analysis.profile.Profile(_current_halo.dm, 
                                                    ndim=3, nbins=250, min=0.5, max=35)
             _rs = nfw_fit(_profile)[1]
