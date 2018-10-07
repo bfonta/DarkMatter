@@ -1,5 +1,4 @@
 # dmprofile
-## Simplify your pynbody dark matter halos analysis
 
 **Current release**
 
@@ -15,12 +14,11 @@ The package currently includes two major classes, `Halos()` and `Plot()` plus so
 ```python
 import pynbody
 import dmprofile
-from dmprofile.move import centering_com
 
-h = Halos("simulation_file", max_number_of_halos)
+h = Halos("simulation_file", 500)
 
-prof1 = h.get_profile(halo_idx, 'dm', bins=(10,45,BIN_NUMBER), bin_type='linear', normalize=False)
-prof2 = h.get_profile(halo_idx, 'dm', bins=(10,45,BIN_NUMBER), bin_type='linear', normalize=False)
+prof1 = h.get_profile(halo_idx, 'dm', bins=(2.5,30,100), bin_type='log', normalize=False)
+prof2 = h.get_profile(halo_idx, 'dm', bins=(10,20,30), bin_type='log', normalize=False)
 
 p = plot.Profile([prof1,prof2], h=9, w=8, name="Density.png")
 p.set_all_properties(model='density_profile', xscale='log', yscale='log')
@@ -28,10 +26,9 @@ p.plot_all("radius", "density")
 p.fit_and_plot_all('nfw')                                                                                     
 p.savefig()
 ```
-
-which produces the following:
+which produces something like (simulation dependent):
 
 [Density]: https://github.com/b-fontana/DarkMatter/blob/master/Density.png
 ![Density][Density]
  
-*This package was created during an internship at Swinburne University of Technology, Melbourne.*
+*This package is part of an internship at Swinburne University of Technology, Melbourne.*
