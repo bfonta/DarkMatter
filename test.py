@@ -33,38 +33,42 @@ SnapshotFolder = "Test_NOSN_NOZCOOL_L010N0128/data/snapshot_103/snap_103.hdf5"
 h = Halos(os.path.join(DataFolder,SubhalosFolder), HALO_NUMBER)
 
 #Filtering
-_idx = 0
-r200 = h.get_halo(_idx).properties['Halo_R_Crit200'].in_units('kpc')
-halo = h.get_halo(_idx)
-centering_com(halo)
-subhalo = h.get_subhalo(_idx)
-print(len(subhalo))
-h.filter_(_idx, 0, filter_str='Sphere_1.2')
-subhalo = h.get_subhalo(_idx)
-print(len(subhalo))
-prof1 = h.get_profile(_idx, 0, 'dm', bins=(1,45,BIN_NUMBER), bin_type='linear', normalize=False)
-h.filter_(_idx, 0, filter_str='Sphere_1')
-subhalo_f = h.get_subhalo(_idx)
-print(len(subhalo_f))
-prof2 = h.get_profile(_idx, 0, 'dm', bins=(1,45,BIN_NUMBER), bin_type='linear', normalize=False)
+halo_idx = 0
+hhh = h.get_halo(halo_idx)
 
-rhoz = pn.array.SimArray(pn.analysis.cosmology.rho_crit(halo, unit="Msol kpc**-3"), "Msol kpc**-3")
+centering_com(hhh)
+h.filter_(halo_idx, filter_str='Sphere_1.2')
+r200_1 = h.get_halo(halo_idx).properties['Halo_R_Crit200'].in_units('kpc')
+prof1 = h.get_profile(halo_idx, 'dm', bins=(10,45,BIN_NUMBER), bin_type='linear', normalize=False)
+h.filter_(halo_idx, filter_str='Sphere_1.')
+r200_2 = h.get_halo(halo_idx).properties['Halo_R_Crit200'].in_units('kpc')
+prof2 = h.get_profile(halo_idx, 'dm', bins=(10,45,BIN_NUMBER), bin_type='linear', normalize=False)
+
+#subhalo = h.get_subhalo(0)
+print(hhh.properties['Halo_R_Crit200'].in_units('kpc'))
+print(prof1['density'])
+print('-----')
+print(prof2['density'])
+print('-----')
+rhoz = pn.array.SimArray(pn.analysis.cosmology.rho_crit(hhh, unit="Msol kpc**-3"), "Msol kpc**-3")
+print(rhoz)
+print(rhoz*200)
 profiles = [prof1,prof2]
 
-p = plot.Profile(profiles, name="Density_dm.png")
-p.set_all_properties(model='density_enc_profile', xscale='linear', yscale='log')
-p.plot_all("radius", "density_enc")
-p.draw_line((0,0), rhoz*200, 'h', label=r'200$\rho_{crit}$', color='red')
-p.draw_line((0,0), r200, 'v', label=r'r$_{200}$')
-p.draw_line((1,0), rhoz*200, 'h',label=r'200$\rho_{crit}$', color='red')
-p.draw_line((1,0), r200, 'v',label=r'r$_{200}$')
+p = plot.Profile(profiles, name="Density.png")
+p.set_all_properties(model='density_profile', xscale='log', yscale='log')
+p.plot_all("radius", "density")
+p.draw_line((0,0), rhoz*200, 'h', label=r'$\rho_{crit}$', color='red')
+p.draw_line((0,0), r200_1, 'v', label=r'r$_{200}$')
+p.draw_line((1,0), rhoz*200, 'h',label=r'$\rho_{crit}$', color='red')
+p.draw_line((1,0), r200_2, 'v',label=r'r$_{200}$')
 #p.fit_and_plot_all('nfw')
 p.savefig()
 
 """
-x, y, z = halo['x'], halo['y'], halo['z']
-xx, yy, zz = subhalo_f['x'], subhalo_f['y'], subhalo_f['z']
-x_s, y_s, z_s = subhalo['x'], subhalo['y'], subhalo['z']
+x, y, z = halo_f['x'], halo_f['y'], halo_f['z']
+xx, yy, zz = halo_f['x'], halo_f['y'], halo_f['z']
+x_s, y_s, z_s = sub['x'], sub['y'], sub['z']
 x_h, y_h, z_h = halo['x'], halo['y'], halo['z']
 
 fig, axis = plt.subplots(nrows=2, ncols=2)
