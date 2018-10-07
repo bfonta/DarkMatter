@@ -17,8 +17,8 @@ import dmprofile
 
 h = Halos("simulation_file", 500)
 
-prof1 = h.get_profile(halo_idx, 'dm', bins=(2.5,30,100), bin_type='log', normalize=False)
-prof2 = h.get_profile(halo_idx, 'dm', bins=(10,20,30), bin_type='log', normalize=False)
+prof1 = h.get_profile(0, 'dm', bins=(2.5,30,100), bin_type='log', normalize=False)
+prof2 = h.get_profile(2, 'dm', bins=(10,20,30), bin_type='log', normalize=False)
 
 p = plot.Profile([prof1,prof2], h=9, w=8, name="Density.png")
 p.set_all_properties(model='density_profile', xscale='log', yscale='log')
