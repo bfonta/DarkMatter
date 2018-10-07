@@ -13,7 +13,8 @@ The package currently includes two major classes, `Halos()` and `Plot()` plus so
  
 ```python
 import pynbody
-import dmprofile
+from dmprofile.src.halos import Halos
+frm dmprofile.src import plot
 
 h = Halos("simulation_file", 500)
 
