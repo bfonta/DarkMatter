@@ -28,12 +28,12 @@ halo_idx = 0
 halo = h.get_halo(halo_idx)
 centering_com(halo)
 subhalo = h.get_subhalo(halo_idx)
-h.filter_(halo_idx, filter_str='Sphere_1.2')
-halo_f = h.get_halo(halo_idx)
-prof1 = h.get_profile(0, component='dm', bins=(2.5,30,BIN_NUMBER), bin_type='log', normalize=False)
-h.filter_(halo_idx, filter_str='Sphere_1.')
-halo_f2 = h.get_halo(halo_idx)
-prof2 = h.get_profile(2, component='dm', bins=(10,20,30), bin_type='log', normalize=False)
+h.filter_(halo_idx, sub_idx=0, filter_str='Sphere_1')
+halo_f = h.get_subhalo(halo_idx)
+#prof1 = h.get_profile(2, component='dm', bins=(2.5,30,BIN_NUMBER), bin_type='log', normalize=False)
+h.filter_(halo_idx, sub_idx=0, filter_str='Sphere_0.4')
+halo_f2 = h.get_subhalo(halo_idx)
+#prof2 = h.get_profile(2, component='dm', bins=(10,20,30), bin_type='log', normalize=False)
 
 #plotting
 x, y, z = halo_f['x'], halo_f['y'], halo_f['z']
@@ -58,7 +58,7 @@ axis[1,1].plot(xx, yy, marker='.', linestyle='None', label='Smaller sphere', col
 axis[1,1].legend()
 axis[1,1].set_xlim([-35,35])
 axis[1,1].set_ylim([-35,35])
-plt.savefig("../figs/Filtering_xy.png")
+plt.savefig("figs/Filtering_xy.png")
 
 fig, axis = plt.subplots(nrows=2, ncols=2)
 axis[0,0].plot(x, z, marker='.', linestyle='None', label='Sphere filter', color='b')
@@ -104,7 +104,7 @@ axis.legend()
 axis.set_xlim([-40,40])
 axis.set_ylim([-40,40])
 axis.set_zlim([-40,40])
-plt.savefig("figs/3D.png")
+plt.savefig("figs/3D_2.png")
 
 if __name__ == 'main':
     unittest.main()

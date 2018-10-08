@@ -50,7 +50,7 @@ class Halos():
         else:
             self._subhalos[idx][sub_idx], self._subhalos_bak[idx][sub_idx] = self._subhalos_bak[idx][sub_idx], self._subhalos[idx][sub_idx]
 
-    def filter_(self, halo_idxs, sub_idx=-1, filter_str='Sphere_1.2', option=None):
+    def filter_(self, halo_idxs=0, sub_idx=-1, filter_str='Sphere_1.2', option=None):
         """
         halo_idxs: indexes of the halos to filter; if more than one, it must be a list
         option: None, 'half1', 'half2' or 'all'
@@ -59,6 +59,9 @@ class Halos():
         BandPass_prop_min_max. Example: BandPass_y_1 kpc_2 kpc. It must have units.
         The inputs for each filter are separated using the underscore '_' carachter
         More filters can be added to 'filter_dict' in the same fashion with variable number of arguments
+
+        If 'option' is set the user does not need to specify the indexes.
+        By default only the largest halo is filtered.
         """
         if type(halo_idxs) != int and type(halo_idxs) != list:
             raise TypeError('The introduced indexes have the wrong format')
@@ -95,19 +98,21 @@ class Halos():
                     print(self._check_backup(i))
                     raise warnings.warn('This halo backup is already being used!')
                 self._halos_bak[i] = self._halos[i]
-                with centering_com(self._halos[i]):
-                    self._halos[i] = self._halos[i][_filter_func(_r200, _split_values, 
-                                                                 self._halos[i])]
+                #with centering_com(self._halos[i]):
+                self._halos[i] = self._halos[i][_filter_func(_r200, _split_values, 
+                                                             self._halos[i])]
             else: #filter the halo but centered in the subhalo
                 if not self._check_backup(i):
                     raise warnings.warn('This subhalo backup is already being used!')
                 if self._subhalos[i][sub_idx][0] != sub_idx:
                     raise RuntimeError('Different subhalos are being mixed!')
                 self._subhalos_bak[i][sub_idx] = self._subhalos[i][sub_idx]
-                with centering_com(self._subhalos[i][sub_idx][1]):
-                    _subhalo = self._halos[i][_filter_func(_r200, _split_values, 
-                                                           self._subhalos[i][sub_idx][1])]
-                    self._subhalos[i][sub_idx] = (sub_idx,_subhalo)
+                
+                #with centering_com(self._subhalos[i][sub_idx][1]):
+                _subhalo = self._halos[i][_filter_func(_r200, _split_values, 
+                                                       self._subhalos[i][sub_idx][1])]
+                self._subhalos[i][sub_idx] = (sub_idx,_subhalo)
+                print("HALOO!!!", self._subhalos[i][sub_idx][1])
 
 
     def is_relaxed(self, halo_idx, sub_idx=-1):
