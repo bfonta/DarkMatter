@@ -43,8 +43,8 @@ class _Plot():
         
         if nrows!=0 and ncols!=0:
             self._nrows, self._ncols = nrows, ncols
-            return plt.subplots(nrows=self._nrows, ncols=self._ncols,
-                                figsize=(self._width, self._height))
+            self._fig, self._axis = plt.subplots(nrows=self._nrows, ncols=self._ncols,
+                                                 figsize=(self._width, self._height))
         else:
             _r = np.floor(np.sqrt(self._N))
             _c = _r
@@ -54,8 +54,8 @@ class _Plot():
                 _r += next(_r_iter)
                 _c += next(_c_iter)
             self._nrows, self._ncols = int(_r), int(_c)
-            return plt.subplots(nrows=self._nrows, ncols=self._ncols,
-                                figsize=(self._width, self._height))
+            self._fig, self._axis = plt.subplots(nrows=self._nrows, ncols=self._ncols,
+                                                 figsize=(self._width, self._height))
 
     def _set_axis_indexes(self, axis_idx):
         """
@@ -73,28 +73,69 @@ class _Plot():
     def set_name(self, name):
         self._name = name
 
-    def set_axis(self, idx, xlabel, ylabel, xscale='linear', yscale='linear'):
+    def set_axis(self, idx, xlabel, ylabel, xscale='linear', yscale='linear',
+                 xmin=None, xmax=None, ymin=None, ymax=None):
         """
         idx can be either a single value or a tuple, depending on the total number of profiles
         """
-        if self._N>2:
-            indexes = idx[0], idx[1]
-        else:
-            indexes = idx[0]
+        if self._N>2: indexes = idx[0], idx[1]
+        else:         indexes = idx[0]
+
+        if xmin!=None and xmax!=None:
+            self._axis[indexes].set_xlim([xmin,xmax])
+        if ymin!=None and ymax!=None:
+            self._axis[indexes].set_ylim([ymin,ymax])
+
+        if (xmin==None and xmax!=None) or (xmin!=None and xmax==None):
+            raise ValueError('Please provide both xmin and xmax options.')
+        if (ymin==None and ymax!=None) or (ymin!=None and ymax==None):
+            raise ValueError('Please provide both ymin and ymax options.')
+
         self._axis[indexes].set_xscale(xscale)
         self._axis[indexes].set_yscale(yscale)
         self._axis[indexes].set_xlabel(xlabel)
         self._axis[indexes].set_ylabel(ylabel)
 
-    def set_axis_all(self, xlabel, ylabel, xscale='linear', yscale='linear'):
+    def _set_axis_3D(self, axis, xlabel='', xscale='linear', ylabel='', yscale='linear',
+                     zlabel='', zscale='linear',
+                     xmin=None, xmax=None, ymin=None, ymax=None, zmin=None, zmax=None):
+
+        if (xmin==None and xmax!=None) or (xmin!=None and xmax==None):
+            raise ValueError('Please provide both xmin and xmax options.')
+        if (ymin==None and ymax!=None) or (ymin!=None and ymax==None):
+            raise ValueError('Please provide both ymin and ymax options.')
+        if (zmin==None and zmax!=None) or (zmin!=None and zmax==None):
+            raise ValueError('Please provide both zmin and zmax options.')
+
+        if xmin!=None and xmax!=None:
+            axis.set_xlim([xmin,xmax])
+        if ymin!=None and ymax!=None:
+            axis.set_ylim([ymin,ymax])        
+        if zmin!=None and zmax!=None:
+            axis.set_zlim([zmin,zmax])
+
+        axis.set_xlabel(xlabel)
+        axis.set_xscale(xscale)
+        axis.set_xscale(xscale)
+        axis.set_xlabel(xlabel)
+        axis.set_yscale(yscale)
+        axis.set_yscale(yscale)
+        axis.set_zlabel(zlabel)
+        axis.set_zscale(zscale)
+        axis.set_zscale(zscale)
+
+    def set_axis_all(self, xlabel='', ylabel='', xscale='linear', yscale='linear',
+                     xmin=None, xmax=None, ymin=None, ymax=None):
         if self._N>2:
             _r, _c = self._nrows, self._ncols
             for i in range(_r):
                 for j in range(_c):
-                    self.set_axis((i,j), xlabel, ylabel, xscale, yscale)
+                    self.set_axis((i,j), xlabel, ylabel, xscale, yscale,
+                                  xmin, xmax, ymin, ymax, zmin, zmax)
         else:
             for i in range(self._N):
-                self.set_axis((i,0), xlabel, ylabel, xscale, yscale)
+                self.set_axis((i,0), xlabel, ylabel, xscale, yscale,
+                              xmin, xmax, ymin, ymax)
 
     def set_all_properties(self, title="", model=None, 
                        xlabel='R [kpc]', ylabel=None, 
@@ -125,18 +166,20 @@ class _Plot():
                 else:
                     self.set_axis((i,0), xlabel, ylabel, xscale, yscale)
 
-    def plot_3D(self):
-        self._axis[0,0].plot(x, y, marker='.', linestyle='None', label='Sphere filter', color='b')
-        axis[0,0].legend()
-        axis[0,0].set_xlim([-35,35])
-        axis[0,0].set_ylim([-35,35])
-        axis[0,1].plot(x_s, y_s, marker='.', linestyle='None', label='Main subhalo', color='g')
-        axis[0,1].legend()
-        axis[0,1].set_xlim([-35,35])
-        axis[0,1].set_ylim([-35,35])
-        axis[1,0].plot(x_h, y_h, marker='.', linestyle='None', label='Halo', color='orange')
-        axis[1,0].legend()
-                    
+    def scatter_plot_3D(self, x, y, z, axis_idx, label='', linestyle='None', color='b',
+                        xmin=None, xmax=None, ymin=None, ymax=None, zmin=None, zmax=None):
+        """
+        Note: The 2D index has to be converted into a 1D index whenever the plots is 3D 
+              (see matplotlib three-dimensional plotting)
+        """
+        _axis_idx_3D = axis_idx[1] + self._ncols*axis_idx[0] + 1
+        _axis = self._fig_3D.add_subplot(self._nrows, self._ncols, _axis_idx_3D, projection='3d')
+        _axis.scatter(x, y, z, zdir='z', marker='.', linestyle=linestyle,
+                      label=label, color=color)
+        if label != '': self._axis[indexes].legend()
+        self._set_axis_3D(axis=_axis, zlabel='', zscale='linear',
+                         xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, zmin=zmin, zmax=zmax)
+     
     def savefig(self, name=''):
         if self._name=='':
             try:
@@ -435,3 +478,41 @@ class Relaxation(_Plot):
     @do_all_objects
     def intersect_and_plot_all(self, function='nfw', *args, **kwargs):
         self.intersect_and_plot(kwargs['i_profile'], (kwargs['i'], kwargs['j']))
+
+
+class Particles(_Plot):
+    def __init__(self, pos, w=10, h=9, nrows=0, ncols=0, name=''):
+        """
+        The 'pos' argument is a list of 2D lists with the 'x', 'y' and 'z' positions of the particles.
+        Each list corresponds to a plot.
+        
+        Example:
+        If one wants to plot two different distributions of particles, one does the following:
+        instance = Particles([[pos1x, pos1y, pos1z], [pos2x, pos2y, pos2z], ...],
+                             [[pos1x_2, pos1y_2, pos1z_2], [pos2x_2, pos2y_2, pos2z_2], ...])
+        Using a pynbody simulation directly, the above code simplifies to:
+        instance = Particles([sim['pos'],
+                             sim_2['pos']])
+        """
+        super().__init__(pos, w, h, nrows, ncols, name)
+        self._fig_3D = plt.figure(figsize=(self._width, self._height))
+        self._pos = self._obj_list
+
+    def scatter_plot_3D(self, idx, axis_idx, label='', linestyle='None', color='b',
+                        xmin=None, xmax=None, ymin=None, ymax=None, zmin=None, zmax=None):
+        super().scatter_plot_3D(x=self._pos[idx]['x'], y=self._pos[idx]['y'], z=self._pos[idx]['z'],
+                                axis_idx=axis_idx, label=label, linestyle=linestyle, color=color,
+                                xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, zmin=zmin, zmax=zmax)
+
+    def savefig(self, name='', option='2D'):
+        """
+        overload saving function
+        option: '2D' or '3D'
+        """
+        options = ['2D', '3D']
+        if option not in options:
+            raise ValueError('Please select a valid option.')
+
+        if option=='3D': self._fig, self._fig_3D = self._fig_3D, self._fig
+        super().savefig(name)        
+        if option=='3D': self._fig, self._fig_3D = self._fig_3D, self._fig
