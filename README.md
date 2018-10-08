@@ -13,7 +13,8 @@ The package currently includes two major classes, `Halos()` and `Plot()` plus so
  
 ```python
 import pynbody
-import dmprofile
+from dmprofile.src.halos import Halos
+from dmprofile.src import plot
 
 h = Halos("simulation_file", 500)
 
@@ -28,7 +29,7 @@ p.savefig()
 ```
 which produces something like (simulation dependent):
 
-[Density]: https://github.com/b-fontana/DarkMatter/blob/master/Density.png
+[Density]: https://github.com/b-fontana/DarkMatter/blob/master/figs/test.png
 ![Density][Density]
  
 *This package is part of an internship at Swinburne University of Technology, Melbourne.*
