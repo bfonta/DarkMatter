@@ -27,6 +27,9 @@ def do_all_objects(func):
 class _Plot():
     """
     Important: each individual object contained inside obj_list is meant to be converted into a plot, so in general each object will be a list of values.
+    Returns number of rows '_r' and columns '_c' that any plot with more than 2 figure has.
+    This behaiour has no effect if the user manually specifies the number of rows and columns.
+    The variable 'n' is the number of figures to plot.
     """
     def __init__(self, obj_list, width, height, nrows, ncols, name=''):
         if type(obj_list) is not list:
@@ -35,23 +38,25 @@ class _Plot():
             raise TypeError
         self._obj_list = obj_list
         self._N = len(self._obj_list)
-        self._nrows, self._ncols = nrows, ncols
+        self._width, self._height = width, height
         self._name = name
-
-    def _geometry(self, n):
-        """
-        Returns number of rows '_r' and columns '_c' that any plot with more than 2 figure has.
-        'n' is the number of figures to plot
-        """
-        _r = np.floor(np.sqrt(n))
-        _c = _r
-        _r_iter, _c_iter = itertools.cycle(range(2)), itertools.cycle(range(2))
-        next(_r_iter)
-        while _r*_c<self._N:
-            _r += next(_r_iter)
-            _c += next(_c_iter)
-        return int(_r), int(_c)
         
+        if nrows!=0 and ncols!=0:
+            self._nrows, self._ncols = nrows, ncols
+            return plt.subplots(nrows=self._nrows, ncols=self._ncols,
+                                figsize=(self._width, self._height))
+        else:
+            _r = np.floor(np.sqrt(self._N))
+            _c = _r
+            _r_iter, _c_iter = itertools.cycle(range(2)), itertools.cycle(range(2))
+            next(_r_iter)
+            while _r*_c<self._N:
+                _r += next(_r_iter)
+                _c += next(_c_iter)
+            self._nrows, self._ncols = int(_r), int(_c)
+            return plt.subplots(nrows=self._nrows, ncols=self._ncols,
+                                figsize=(self._width, self._height))
+
     def _set_axis_indexes(self, axis_idx):
         """
         Set the axis indexes into 1D or 2D, due to matplotlib axis indexing.
@@ -83,7 +88,7 @@ class _Plot():
 
     def set_axis_all(self, xlabel, ylabel, xscale='linear', yscale='linear'):
         if self._N>2:
-            _r, _c = self._geometry(self._N)
+            _r, _c = self._nrows, self._ncols
             for i in range(_r):
                 for j in range(_c):
                     self.set_axis((i,j), xlabel, ylabel, xscale, yscale)
@@ -119,6 +124,18 @@ class _Plot():
                         self.set_axis((i,j), xlabel, ylabel, xscale, yscale)
                 else:
                     self.set_axis((i,0), xlabel, ylabel, xscale, yscale)
+
+    def plot_3D(self):
+        self._axis[0,0].plot(x, y, marker='.', linestyle='None', label='Sphere filter', color='b')
+        axis[0,0].legend()
+        axis[0,0].set_xlim([-35,35])
+        axis[0,0].set_ylim([-35,35])
+        axis[0,1].plot(x_s, y_s, marker='.', linestyle='None', label='Main subhalo', color='g')
+        axis[0,1].legend()
+        axis[0,1].set_xlim([-35,35])
+        axis[0,1].set_ylim([-35,35])
+        axis[1,0].plot(x_h, y_h, marker='.', linestyle='None', label='Halo', color='orange')
+        axis[1,0].legend()
                     
     def savefig(self, name=''):
         if self._name=='':
@@ -140,9 +157,6 @@ class Profile(_Plot):
     def __init__(self, p, w=10, h=9, nrows=0, ncols=0, name=''):
         super().__init__(p, w, h, nrows, ncols, name)
         self._p = self._obj_list
-        if nrows==0 or ncols==0:
-            self._nrows, self._ncols = super()._geometry(self._N)
-        self._fig, self._axis = plt.subplots(nrows=self._nrows, ncols=self._ncols, figsize=(w,h))
 
     def plot(self, idx, axis_idx, x_var, y_var):
         """
@@ -226,9 +240,7 @@ class Shape(_Plot):
         super().__init__(s, w, h, nrows, ncols, name)
         self._s = self._obj_list
         self._extra_var = extra_var
-        if nrows==0 or ncols==0:
-            self._nrows, self._ncols = super()._geometry(self._N)
-        self._fig, self._axis = plt.subplots(nrows=self._nrows, ncols=self._ncols, figsize=(w,h))
+        self._fig, self._axis = super()._set_figure(self._nrows, self._ncols)
 
     def _shape_array_to_numpy(self, s):
         """
@@ -324,9 +336,7 @@ class Concentration(_Plot):
         super().__init__(c, w, h, nrows, ncols, name)
         self._c = self._obj_list
         self._extra_var = extra_var
-        if nrows==0 or ncols==0:
-            self._nrows, self._ncols = super()._geometry(self._N)
-        self._fig, self._axis = plt.subplots(nrows=self._nrows, ncols=self._ncols, figsize=(w,h))
+        self._fig, self._axis = super()._set_figure()
 
     def scatter_plot(self, idx, axis_idx, concentration_axis='y', 
                      resolved_bools=[], relaxed_bools=[]):
@@ -378,9 +388,6 @@ class Relaxation(_Plot):
         super().__init__(relax, w, h, nrows, ncols, name)
         self._relax = self._obj_list
         self._radius = radius
-        if nrows==0 or ncols==0:
-            self._nrows, self._ncols = super()._geometry(self._N)
-        self._fig, self._axis = plt.subplots(nrows=self._nrows, ncols=self._ncols, figsize=(w,h))
 
     def plot(self, idx, axis_idx, x=None, y=None):
         """
