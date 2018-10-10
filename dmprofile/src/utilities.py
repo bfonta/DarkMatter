@@ -30,3 +30,9 @@ def is_list_empty(l):
     if isinstance(l, list): #it is a list
         return all( map(is_list_empty, l)) #all([]) is True
     return False
+
+def memory_usage_resource():
+    import os
+    import psutil
+    _process = psutil.Process(os.getpid())
+    print(_process.memory_info().rss / float(2**20), "MiB being used.")
