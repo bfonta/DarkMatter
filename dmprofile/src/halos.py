@@ -1,27 +1,43 @@
 import os, warnings
 import numpy as np
+import copy
 import pynbody as pn
 import pynbody.units as u
 from pynbody.analysis.halo import center_of_mass as com
 
 from src.fit import nfw_fit
-from src.utilities import intersect
+from src.utilities import intersect, memory_usage_resource as mem
 from src.move import centering_com
 
 class Halos():
     """
     Halos management
     """
-    def __init__(self, filename, N=1):
-        self.filename = filename
-        _s = pn.load(os.path.join(self.filename))
-        _s['eps'] = 200.*pn.units.pc
-        _s.physical_units() #concentration will be wrong if this line is removed
-        if N>len(_s): 
+    def __init__(self, halos_filename, sim_filename, N=1, min_size=300):
+        """
+        Tasks:
+        1. Loads the halos and full simulation. Make sure they correspond to the same particles.
+        2. Creates backup copies of all halos and subhalos
+
+        Note: The full simulaton includes the particles that were not assigned to any halo
+              by the Friends of Friends algorithm.
+        """
+        
+        _s_halos = pn.load(halos_filename)
+        _s_halos['eps'] = 200.*pn.units.pc
+        _s_halos.physical_units()
+
+        self._sim = pn.load(sim_filename)
+        self._sim['eps'] = 200.*pn.units.pc
+        self._sim.physical_units()
+
+        if N>len(_s_halos): 
             warnings.warn("The specified halo number is larger than the number of halos in the simulation box.")
-        self._N = N
-        self._halos = _s.halos()[:self._N]
-        self._halos_bak = self._halos #halos backup
+        _halos_tot = _s_halos.halos()
+        self._halos = [item for item in _halos_tot if len(item)>=min_size]
+        self._halos = self._halos[:N]
+        self._N = len(self._halos)
+        self._halos_bak = self._halos.copy() #halos backup
 
         #backup for subhalos (id, subhalo): 
         #the id is helpful because each halo can have more than one subhalo
@@ -31,16 +47,41 @@ class Halos():
             length = int(self._halos[_i].properties['NsubPerHalo'])#number subhalos in a halo
             #columns represent the subhalos in descending size order
             self._subhalos[_i].extend((_isub, self._halos[_i].sub[_isub]) for _isub in range(length))
-        self._subhalos_bak = self._subhalos
-    
+        self._subhalos_bak = self._subhalos.copy()
+
+        self._vars = {} #dictionary to store variables
+
     def _get_r200(self, idx):
-        return self._halos[idx].properties['Halo_R_Crit200'].in_units('kpc')
+        try:
+            _r200 = self._halos[idx].properties['Halo_R_Crit200'].in_units('kpc')
+            self._vars["r200_"+str(idx)] = _r200
+            return _r200
+        except KeyError:
+            try:
+                return self._halos_bak[idx].properties['Halo_R_Crit200'].in_units('kpc') 
+            except KeyError:
+                return self._vars["r200_"+str(idx)]
 
     def _check_backup(self, idx, sub_idx=-1):
         if sub_idx < 0:
             return self._halos[idx]==self._halos_bak[idx]
         else:
             return self._subhalos[idx][sub_idx]==self._subhalos_bak[idx][sub_idx]
+
+    def get_shape(self, idx):
+        return pn.analysis.halo.halo_shape(self._halos[idx], 
+                                           N=1, rout=self._get_r200(idx), bins='lin')
+
+    def get_mass200(self, idx):
+        try:
+            _m200 = self._halos[idx].properties['Halo_M_Crit200'].in_units('Msol')
+            self._vars["m200_"+str(idx)] = _m200
+            return _m200
+        except KeyError:
+            try:
+                return self._halos_bak[idx].properties['Halo_M_Crit200'].in_units('Msol') 
+            except KeyError:
+                return self._vars["m200_"+str(idx)]
 
     def restore(self, idx, sub_idx=-1):
         if idx >= self._N: raise ValueError('The halo index is too large.')
@@ -50,23 +91,30 @@ class Halos():
         else:
             self._subhalos[idx][sub_idx], self._subhalos_bak[idx][sub_idx] = self._subhalos_bak[idx][sub_idx], self._subhalos[idx][sub_idx]
 
-    def filter_(self, halo_idxs=0, sub_idx=-1, filter_str='Sphere_1.2', option=None):
+    def filter_(self, halo_idxs=0, sub_idx=-1, filter_str='Sphere_1.2', option=None, sim=True):
         """
-        halo_idxs: indexes of the halos to filter; if more than one, it must be a list
-        option: None, 'half1', 'half2' or 'all'
-        filters:
-        Sphere_radius, where radius is a number relative to r200. Example: Sphere_1
-        BandPass_prop_min_max. Example: BandPass_y_1 kpc_2 kpc. It must have units.
-        The inputs for each filter are separated using the underscore '_' carachter
-        More filters can be added to 'filter_dict' in the same fashion with variable number of arguments
+        Arguments:
 
-        If 'option' is set the user does not need to specify the indexes.
-        By default only the largest halo is filtered.
+        halo_idxs: indexes of the halos to filter; if more than one, it must be a set
+        sub_idx: index of the subhalo. If set to a negative number, the whole halo is filtered.
+        filters:
+            1. Sphere_radius, where radius is a number relative to r200. Example: Sphere_1
+            2. BandPass_prop_min_max. Example: BandPass_y_1 kpc_2 kpc. It must have units.
+        option: None, 'half1', 'half2' or 'all' to select halos faster.
+                When option!=None 'halos_idxs' are ignored.
+                By default only the largest halo is filtered.
+        sim: Whether to filter the full simulation or just the specified halo.
+             This is relevant because the full simulation also includes particles
+             that were not bounded to any halo or subhalo.
+
+        Note: The inputs for each filter are separated using the underscore '_' charachter.
+              More filters can be added to 'filter_dict' in the same fashion with variable 
+              number of arguments.
         """
-        if type(halo_idxs) != int and type(halo_idxs) != list:
+        if type(halo_idxs) != int and type(halo_idxs) != set:
             raise TypeError('The introduced indexes have the wrong format')
         if type(halo_idxs) is int:
-            halo_idxs = [halo_idxs]
+            halo_idxs = {halo_idxs}
 
         filter_dict = {'Sphere': lambda _r,_factors,_halo: 
                        pn.filt.Sphere(float(_factors[0])*_r, com(_halo)),
@@ -76,7 +124,7 @@ class Halos():
             if item in filter_str:
                 break
             else:
-                if item==[*filter_dict.keys()][-1]:
+               if item==[*filter_dict.keys()][-1]:
                     raise ValueError('The specified filtering option is not supported.')
         _split = filter_str.split('_')
         _split_str = _split[0]
@@ -92,15 +140,19 @@ class Halos():
 
         for i in halo_idxs:
             _r200 = self._get_r200(i)
-            
+
             if sub_idx < 0: #filter the halo
                 if not self._check_backup(i):
                     print(self._check_backup(i))
                     raise warnings.warn('This halo backup is already being used!')
-                self._halos_bak[i] = self._halos[i]
-                #with centering_com(self._halos[i]):
-                self._halos[i] = self._halos[i][_filter_func(_r200, _split_values, 
-                                                             self._halos[i])]
+                self._halos_bak[i] = copy.copy(self._halos[i])
+
+                if sim:
+                    self._halos[i] = self._sim[_filter_func(_r200, _split_values, 
+                                                            self._halos[i])]
+                else: 
+                    self._halos[i] = self._halos[i][_filter_func(_r200, _split_values, 
+                                                                 self._halos[i])]
             else: #filter the halo but centered in the subhalo
                 if not self._check_backup(i):
                     raise warnings.warn('This subhalo backup is already being used!')
@@ -109,11 +161,15 @@ class Halos():
                 self._subhalos_bak[i][sub_idx] = self._subhalos[i][sub_idx]
                 
                 #with centering_com(self._subhalos[i][sub_idx][1]):
-                _subhalo = self._halos[i][_filter_func(_r200, _split_values, 
-                                                       self._subhalos[i][sub_idx][1])]
+                if sim:
+                    _subhalo = self._sim[_filter_func(_r200, _split_values, 
+                                                 self._subhalos[i][sub_idx][1])]
+                else:
+                    _subhalo = self._halos[i][_filter_func(_r200, _split_values, 
+                                                           self._subhalos[i][sub_idx][1])]
                 self._subhalos[i][sub_idx] = (sub_idx,_subhalo)
-                print("HALOO!!!", self._subhalos[i][sub_idx][1])
 
+            mem()
 
     def is_relaxed(self, halo_idx, sub_idx=-1):
         if sub_idx < 0:
@@ -132,14 +188,15 @@ class Halos():
 
     def is_resolved(self, halo_idx, intersect_value=1.):
         with centering_com(self._halos[halo_idx]): #centering the main halo
+            print(halo_idx)
             _r200 = self._get_r200(halo_idx)
-            _prof = self.get_profile(halo_idx,component='dm',bins=(2.4,25,30),bin_type='log',normalize=False)
+            _prof = self.get_profile(halo_idx,component='dm',bins=(2.2,15,16),bin_type='log',normalize=False)
             _relax = self.relaxation(halo_idx, _prof)
             _inter = intersect(_prof['rbins'], _relax, intersect_value=intersect_value)
             if _inter[1]==True:            
-                print(_inter[0], " ---- ", _r200*np.power(10,-1.25))
                 return _inter[0] < _r200*np.power(10,-1.25)
             else:
+                print("Halo number", halo_idx)
                 raise RuntimeError('No intersection was found for this halo. The resolution criteria cannot thus be checked.')
                 return False
 
@@ -196,7 +253,7 @@ class Halos():
         return [self.concentration_200(i, sub, sub_idx) for i in range(n)]
 
     def get_profile(self, idx, sub_idx=-1, component='dm', 
-                    bins=(1,45,30), bin_type='linear', normalize=False):
+                    bins=(1,30,18), bin_type='linear', normalize=False):
         """
         Obtain the profile of a single halo.
         Arguments:
@@ -221,7 +278,7 @@ class Halos():
                 calc_x = lambda x: x['r']/r200
             else:
                 calc_x = lambda x: x['r']
-            
+
             if bin_type=='linear':
                 return pn.analysis.profile.Profile(components[component],
                                                    calc_x = calc_x,
@@ -238,6 +295,7 @@ class Halos():
                                                                     bins[2]))
             else:
                 raise ValueError('The specified bin type does not exist.')
+
 
     def relaxation(self, idx, profile=None, component='dm', bins=(4,50,30), bin_type='linear'):
         """
@@ -263,6 +321,7 @@ class Halos():
             _nparts = pn.array.SimArray([len(_h[_h['r']<_rbins[i]]) for i in range(len(_rbins))],'')
 
         if 0. in _density:
+            print("Halo number", idx)
             print(_density)
             raise ValueError('At least one of the values of the density is zero. The relaxation time cannot be calculated when this happens.')
         return (np.sqrt(200)*_nparts)/(8*np.log(_nparts))*np.sqrt(_rho_crit_z/_density)
