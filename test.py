@@ -33,7 +33,6 @@ h = Halos(path1, path2, N=10, min_size=300)
 N = h.get_number_halos()
 h.filter_(halo_idxs=0, sub_idx=0, filter_str='Sphere_1.2', option='all', sim=True)
 
-"""
 s, M200, rel, res = ([] for i in range(4))
 #exceptions = [1,2,15,61,170,173]
 exceptions = [1,2,15,61,170,173]
@@ -47,6 +46,7 @@ for i_halo in ids:
         if s_tmp[1]>1e-6 and s_tmp[2]>1e-6: #avoid infinities
             M200.append(np.log10(m200))
             s.append(s_tmp)
+
 shape = plot.Shape([s, s, s], M200, name="figs/Shape.png", w=11, h=10)
 shape.set_axis((0,0), xlabel=r'$\log_{10}(M)$ [M$_{\odot}$]', ylabel='b/a',
                xscale='log', yscale='linear')
@@ -63,9 +63,13 @@ shape.scatter_plot(2, axis_idx=(1,1), x_var="mass", y_var="triax",
                    resolved_bools=res, relaxed_bools=rel)
 shape.binned_plot(0, axis_idx=(1,0), nbins=5, x_var="mass", y_var="triax",
                   color='b') 
+shape.binned_plot(1, axis_idx=(1,0), nbins=5, x_var="mass", y_var="triax",
+                  color='r', shift=0.04) 
+shape.binned_plot(2, axis_idx=(1,0), nbins=5, x_var="mass", y_var="triax",
+                  color='g', shift=0.08) 
 shape.savefig()
-"""
 
+"""
 profiles, relax, rbins = ([] for i in range(3))
 for i in range(2,5):
     profiles.append(h.get_profile(i,component='dm',bins=(2.,15,BIN_NUMBER),bin_type='log',normalize=False))
@@ -85,3 +89,4 @@ r.intersect_and_plot(1, (0,1), intersect_value=1.)
 r.intersect_and_plot(2, (1,1), intersect_value=1.)
 r.set_all_properties(model='relaxation', xscale='log', yscale='log')
 r.savefig('figs/Relaxation.png')
+"""
