@@ -131,7 +131,7 @@ class _Plot():
             for i in range(_r):
                 for j in range(_c):
                     self.set_axis((i,j), xlabel, ylabel, xscale, yscale,
-                                  xmin, xmax, ymin, ymax, zmin, zmax)
+                                  xmin, xmax, ymin, ymax)
         else:
             for i in range(self._N):
                 self.set_axis((i,0), xlabel, ylabel, xscale, yscale,
@@ -167,7 +167,8 @@ class _Plot():
                     self.set_axis((i,0), xlabel, ylabel, xscale, yscale)
 
     def scatter_plot_3D(self, x, y, z, axis_idx, label='', linestyle='None', color='b',
-                        xmin=None, xmax=None, ymin=None, ymax=None, zmin=None, zmax=None):
+                        xmin=None, xmax=None, ymin=None, ymax=None, zmin=None, zmax=None,
+                        azim=0, elev=10):
         """
         Note: The 2D index has to be converted into a 1D index whenever the plots is 3D 
               (see matplotlib three-dimensional plotting)
@@ -176,10 +177,78 @@ class _Plot():
         _axis = self._fig_3D.add_subplot(self._nrows, self._ncols, _axis_idx_3D, projection='3d')
         _axis.scatter(x, y, z, zdir='z', marker='.', linestyle=linestyle,
                       label=label, color=color)
+        _axis.azim = azim
+        _axis.elev = elev
         if label != '': self._axis[indexes].legend()
         self._set_axis_3D(axis=_axis, zlabel='', zscale='linear',
                          xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, zmin=zmin, zmax=zmax)
-     
+
+    def binned_plot(self, axis_idx, x, y, nbins, xerr, yerr, marker, color, label):
+        """
+        idx: which of the objects to plot (ordered by the constructor)
+        axis_idx: where to plot the plot. Example: (0,1)
+        x: unbinned 'x' data array
+        y: unbinned 'y' data array
+        nbins: number of bins, based on the 'x' variable distribution
+        xerr: 'x' data uncertainties array
+        yerr: 'y' data uncertainties array
+        """
+        if type(nbins)!=int:
+            raise TypeError('The number of bins has to be an integer value.')
+        indexes = self._set_axis_indexes(axis_idx)
+
+        print(type(x))
+        print(x)
+        x = np.array(x)
+        y = np.array(y)
+        bin_edges = np.histogram(x,nbins)[1]
+        bin_edges_2 = np.roll(bin_edges,-1)[:-1]
+        bin_edges = bin_edges[:-1]
+
+        y_binned_values = [[] for _ in range(nbins)]
+        print(bin_edges)
+        print(bin_edges_2)
+
+        for ix,iy in zip(x,y):
+            for b in range(len(bin_edges)):
+                if ix>=bin_edges[b] and ix<=bin_edges_2[b]:
+                    print(bin_edges[b], bin_edges_2[b])
+                    y_binned_values[b].append(iy)
+
+        print("Y_BINNED_VALUES:", y_binned_values)
+        y_mean = [sum(y_binned_values[i])/len(y_binned_values[i]) if len(y_binned_values[i])!=0 else 0. for i in range(nbins)]
+        yerr = [[.2,.2,.2,.2,.2],
+                [.2,.2,.2,.2,.2]]
+
+        #fig, ax = plt.subplots(figsize=(10,6))
+        bin_centre = bin_edges + (bin_edges_2[0]-bin_edges[0])/2
+
+        self._axis[indexes].errorbar(bin_centre, y_mean, yerr=yerr, 
+                                     fmt='none', ecolor='r', capsize=3)
+        self._axis[indexes].scatter(np.array(bin_centre), np.array(y_mean),
+                                    marker=marker, s=40, color=color, label=label)
+
+
+    def draw_line(self, axis_idx, value, orientation, label, color, linestyle):
+        """
+        Arguments:
+        'idx': profile index
+        'axis_idx' index of the axis where the line will be plotted
+        'value': value at which will be plotted; it is related to the 'orientation' option ('v' or 'h')
+        """
+        indexes = self._set_axis_indexes(axis_idx)
+        _xmin, _xmax = self._axis[indexes].get_xbound()
+        _ymin, _ymax = self._axis[indexes].get_ybound()
+        if orientation=='v':
+            self._axis[indexes].plot([value,value],[_ymin,_ymax], 
+                                     linestyle=linestyle, color=color, label=label)
+        elif orientation=='h':
+            self._axis[indexes].plot([_xmin,_xmax],[value,value],
+                                     linestyle=linestyle, color=color, label=label)
+        else:
+            raise ValueError('The specified orientation is not supported.')
+        self._axis[indexes].legend()
+
     def savefig(self, name=''):
         if self._name=='':
             try:
@@ -257,19 +326,9 @@ class Profile(_Plot):
         'axis_idx' index of the axis where the line will be plotted
         'value': value at which will be plotted; it is related to the 'orientation' option ('v' or 'h')
         """
-        indexes = super()._set_axis_indexes(axis_idx)
-        _xmin, _xmax = self._axis[indexes].get_xbound()
-        _ymin, _ymax = self._axis[indexes].get_ybound()
-        if orientation=='v':
-            self._axis[indexes].plot([value,value],[_ymin,_ymax], 
-                                     linestyle=linestyle, color=color, label=label)
-        elif orientation=='h':
-            self._axis[indexes].plot([_xmin,_xmax],[value,value],
-                                     linestyle=linestyle, color=color, label=label)
-        else:
-            raise ValueError('The specified orientation is not supported.')
-        self._axis[indexes].legend()
-
+        super().draw_line(axis_idx=axis_idx, value=value, orientation=orientation, 
+                          label=label, color=color, linestyle=linestyle)
+        
 class Shape(_Plot):
     """
     Plots all kinds of pynbody related shapes.
@@ -283,7 +342,6 @@ class Shape(_Plot):
         super().__init__(s, w, h, nrows, ncols, name)
         self._s = self._obj_list
         self._extra_var = extra_var
-        self._fig, self._axis = super()._set_figure(self._nrows, self._ncols)
 
     def _shape_array_to_numpy(self, s):
         """
@@ -303,6 +361,29 @@ class Shape(_Plot):
             _snew.append([_a,_b,_c,_d,_e,_f])
         return _snew
 
+    def _define_vars(self, idx, x_var, y_var):
+        """
+        Defines which arrays are to be plotted according to user input.
+        See online documentation of pynbody.analysis.halo.halo_shape() method.
+        """
+        _s_for_plot = self._shape_array_to_numpy(self._s)
+        _match = {'position': 0,
+                  'b/a': 1,
+                  'c/a': 2,
+                  'align': 3,
+                  'rot': 4,
+                  'triax': 5}
+        if x_var not in _match.keys() and y_var not in _match.keys():
+            raise ValueError("At least one of the variables being plot must be related to the shape pynbody method.")
+        elif x_var in _match.keys() and y_var in _match.keys():
+            return _s_for_plot[idx][_match[x_var]], _s_for_plot[idx][_match[y_var]]
+        else: #either x or y are not contained inside the self._s object
+            if x_var not in _match.keys():
+                return self._extra_var, _s_for_plot[idx][_match[y_var]]
+            else:
+                return _s_for_plot[idx][_match[x_var]], self._extra_var
+
+
     def scatter_plot(self, idx, axis_idx, x_var, y_var, resolved_bools=[], relaxed_bools=[]):
         """
         Args:
@@ -315,28 +396,6 @@ class Shape(_Plot):
         """
         handles = []
         indexes = super()._set_axis_indexes(axis_idx)
-
-        def _define_vars(x_var, y_var):
-            """
-            Defines which arrays are to be plotted according to user input.
-            See online documentation of pynbody.analysis.halo.halo_shape() method.
-            """
-            _s_for_plot = self._shape_array_to_numpy(self._s)
-            _match = {'position': 0,
-                      'b/a': 1,
-                      'c/a': 2,
-                      'align': 3,
-                      'rot': 4,
-                      'triax': 5}
-            if x_var not in _match.keys() and y_var not in _match.keys():
-                raise ValueError("At least one of the variables being plot must be related to the shape pynbody method.")
-            elif x_var in _match.keys() and y_var in _match.keys():
-                return _s_for_plot[idx][_match[x_var]], _s_for_plot[idx][_match[y_var]]
-            else: #either x or y are not contained inside the self._s object
-                if x_var not in _match.keys():
-                    return self._extra_var, _s_for_plot[idx][_match[y_var]]
-                else:
-                    return _s_for_plot[idx][_match[x_var]], self._extra_var
 
         if not is_list_empty(resolved_bools):
             grey = (0.2,0.2,0.2)
@@ -358,13 +417,21 @@ class Shape(_Plot):
         else:
             relaxation_markers = ['v']*len(self._s[idx])
         
-        _x, _y = _define_vars(x_var, y_var)
+        _x, _y = self._define_vars(idx, x_var, y_var)
         _sorted_lists = sorted(zip(_x,_y), key=lambda x: x[0])
         _x, _y = [[q[i] for q in _sorted_lists] for i in range(2)]
         
         for xp, yp, c, m in zip(_x, _y, resolution_colors, relaxation_markers):
             self._axis[indexes].scatter(xp, yp, c=c, marker=m)
 
+
+    def binned_plot(self, idx, axis_idx, nbins, x_var, y_var, xerr=None, yerr=None,
+                    marker='o', color='b', label=''):
+        _x, _y = self._define_vars(idx, x_var, y_var)
+        super().binned_plot(axis_idx=axis_idx, 
+                            x=_x, y=_y, 
+                            nbins=nbins, xerr=xerr, yerr=yerr,
+                            marker=marker, color=color, label=label)
 
 class Concentration(_Plot):
     """
@@ -379,7 +446,6 @@ class Concentration(_Plot):
         super().__init__(c, w, h, nrows, ncols, name)
         self._c = self._obj_list
         self._extra_var = extra_var
-        self._fig, self._axis = super()._set_figure()
 
     def scatter_plot(self, idx, axis_idx, concentration_axis='y', 
                      resolved_bools=[], relaxed_bools=[]):
@@ -479,6 +545,17 @@ class Relaxation(_Plot):
     def intersect_and_plot_all(self, function='nfw', *args, **kwargs):
         self.intersect_and_plot(kwargs['i_profile'], (kwargs['i'], kwargs['j']))
 
+    def draw_line(self, axis_idx, value, orientation='v', label='---', color='grey', 
+                  linestyle = '--'):
+        """
+        Arguments:
+        'idx': profile index
+        'axis_idx' index of the axis where the line will be plotted
+        'value': value at which will be plotted; it is related to the 'orientation' option ('v' or 'h')
+        """
+        super().draw_line(axis_idx=axis_idx, value=value, orientation=orientation, 
+                          label=label, color=color, linestyle=linestyle)
+
 
 class Particles(_Plot):
     def __init__(self, pos, w=10, h=9, nrows=0, ncols=0, name=''):
@@ -487,22 +564,19 @@ class Particles(_Plot):
         Each list corresponds to a plot.
         
         Example:
-        If one wants to plot two different distributions of particles, one does the following:
-        instance = Particles([[pos1x, pos1y, pos1z], [pos2x, pos2y, pos2z], ...],
-                             [[pos1x_2, pos1y_2, pos1z_2], [pos2x_2, pos2y_2, pos2z_2], ...])
-        Using a pynbody simulation directly, the above code simplifies to:
-        instance = Particles([sim['pos'],
-                             sim_2['pos']])
+        Using a pynbody simulation directly: instance = Particles([sim, sim_2])
         """
         super().__init__(pos, w, h, nrows, ncols, name)
         self._fig_3D = plt.figure(figsize=(self._width, self._height))
         self._pos = self._obj_list
 
     def scatter_plot_3D(self, idx, axis_idx, label='', linestyle='None', color='b',
-                        xmin=None, xmax=None, ymin=None, ymax=None, zmin=None, zmax=None):
+                        xmin=None, xmax=None, ymin=None, ymax=None, zmin=None, zmax=None,
+                        azim=0, elev=10):
         super().scatter_plot_3D(x=self._pos[idx]['x'], y=self._pos[idx]['y'], z=self._pos[idx]['z'],
                                 axis_idx=axis_idx, label=label, linestyle=linestyle, color=color,
-                                xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, zmin=zmin, zmax=zmax)
+                                xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, zmin=zmin, zmax=zmax,
+                                azim=azim, elev=elev)
 
     def savefig(self, name='', option='2D'):
         """

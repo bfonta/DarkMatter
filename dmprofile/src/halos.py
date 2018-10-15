@@ -13,7 +13,7 @@ class Halos():
     """
     Halos management
     """
-    def __init__(self, halos_filename, sim_filename, N=1, min_size=300):
+    def __init__(self, halos_filename, sim_filename, N=None, min_size=300):
         """
         Tasks:
         1. Loads the halos and full simulation. Make sure they correspond to the same particles.
@@ -22,7 +22,11 @@ class Halos():
         Note: The full simulaton includes the particles that were not assigned to any halo
               by the Friends of Friends algorithm.
         """
-        
+        if type(min_size)!=int:
+            raise ValueError("The 'min_size' parameter has to be an integer")
+        if min_size<1 or (type(N)==int and N<1):
+            raise ValueError('The number of selected halos has to ber larger than zero.')
+
         _s_halos = pn.load(halos_filename)
         _s_halos['eps'] = 200.*pn.units.pc
         _s_halos.physical_units()
@@ -31,11 +35,13 @@ class Halos():
         self._sim['eps'] = 200.*pn.units.pc
         self._sim.physical_units()
 
-        if N>len(_s_halos): 
-            warnings.warn("The specified halo number is larger than the number of halos in the simulation box.")
+        if N!=None:
+            if N>len(_s_halos): 
+                warnings.warn("The specified halo number is larger than the number of halos in the simulation box.")
         _halos_tot = _s_halos.halos()
         self._halos = [item for item in _halos_tot if len(item)>=min_size]
-        self._halos = self._halos[:N]
+        if N!=None:
+            self._halos = self._halos[:N]
         self._N = len(self._halos)
         self._halos_bak = self._halos.copy() #halos backup
 
@@ -82,6 +88,9 @@ class Halos():
                 return self._halos_bak[idx].properties['Halo_M_Crit200'].in_units('Msol') 
             except KeyError:
                 return self._vars["m200_"+str(idx)]
+
+    def get_number_halos(self):
+        return self._N
 
     def restore(self, idx, sub_idx=-1):
         if idx >= self._N: raise ValueError('The halo index is too large.')
@@ -188,17 +197,17 @@ class Halos():
 
     def is_resolved(self, halo_idx, intersect_value=1.):
         with centering_com(self._halos[halo_idx]): #centering the main halo
-            print(halo_idx)
             _r200 = self._get_r200(halo_idx)
-            _prof = self.get_profile(halo_idx,component='dm',bins=(2.2,15,16),bin_type='log',normalize=False)
+            _prof = self.get_profile(halo_idx,component='dm', bins=(3.,20.,16),
+                                     bin_type='log', normalize=False)
             _relax = self.relaxation(halo_idx, _prof)
-            _inter = intersect(_prof['rbins'], _relax, intersect_value=intersect_value)
+            _inter = intersect(_relax[1], _relax[0], intersect_value=intersect_value)
             if _inter[1]==True:            
                 return _inter[0] < _r200*np.power(10,-1.25)
             else:
                 print("Halo number", halo_idx)
                 raise RuntimeError('No intersection was found for this halo. The resolution criteria cannot thus be checked.')
-                return False
+                return True #Hum... this should be discussed
 
     def get_halo(self, halo_idx):
         if halo_idx<=self._N: 
@@ -302,6 +311,9 @@ class Halos():
         Creates a t_relax(r) / t_circ(r200) array for the provided halo.
         If you do not provide a profile, the method creates one for you. 
         The profile is needed to obtain the density as a function of r.
+        
+        Returns:
+        The above array and the corresponding binned radius values
         """
         _h = self._halos[idx]
         _rho_crit_z = pn.array.SimArray(pn.analysis.cosmology.rho_crit(_h, unit="Msol kpc**-3"), 
@@ -322,6 +334,16 @@ class Halos():
 
         if 0. in _density:
             print("Halo number", idx)
-            print(_density)
-            raise ValueError('At least one of the values of the density is zero. The relaxation time cannot be calculated when this happens.')
-        return (np.sqrt(200)*_nparts)/(8*np.log(_nparts))*np.sqrt(_rho_crit_z/_density)
+            zero_idxs = [i for i,item in enumerate(_density) if item==0]
+
+            if zero_idxs[0]==len(_density)-1:
+                _density[_density>0]
+                _rbins[_density>0]
+            else:
+                if _density[zero_idxs[0]+1]>0:
+                    print(_density)
+                    raise ValueError('One of the density values not in the far end of the distribution is zero.')
+                else: 
+                    _density[_density>0]
+                    _rbins[_density>0]
+        return (np.sqrt(200)*_nparts)/(8*np.log(_nparts))*np.sqrt(_rho_crit_z/_density), _rbins
