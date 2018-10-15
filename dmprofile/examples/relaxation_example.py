@@ -16,34 +16,36 @@ import numpy as np
 from scipy.optimize import curve_fit
 
 
-HALO_NUMBER = 497 #after this the main halo has no subhalos
-BIN_NUMBER = 40
+BIN_NUMBER = 20
 
-DataFolder = "/fred/oz071/balves/"
-SubhalosFolder = "Test_NOSN_NOZCOOL_L010N0128/data/subhalos_103/subhalo_103"
-SnapshotFolder = "Test_NOSN_NOZCOOL_L010N0128/data/snapshot_103/snap_103.hdf5"
+path_first = '/fred/oz071/aduffy/Smaug/DMONLY_L010N0256/data'
+path1 = os.path.join(path_first, 'subhalos_103/subhalo_103')
+path2 = os.path.join(path_first, 'snapshot_103/snap_103')
 
-h = Halos(os.path.join(DataFolder,SubhalosFolder), HALO_NUMBER)
+h = Halos(path1, path2, N=10, min_size=300)
+N = h.get_number_halos()
+h.filter_(halo_idxs=0, sub_idx=0, filter_str='Sphere_1.2', option='all', sim=True)
 
-profiles, relax = ([] for i in range(2))
+profiles, relax, rbins = ([] for i in range(3))
 for i in range(2,5):
-    profiles.append(h.get_profile(i,component='dm',bins=(10,30,BIN_NUMBER),bin_type='log',normalize=False))
-    relax.append(h.relaxation(i, profiles[-1]))
+    profiles.append(h.get_profile(i,component='dm',bins=(3.,30,BIN_NUMBER),bin_type='log',normalize=False))
+    _rel = h.relaxation(i, profiles[-1])
+    relax.append(_rel[0])
+    rbins.append(_rel[1])
 
-p = plot.Profile(profiles, name="../../figs/Density.png")
+p = plot.Profile(profiles, name="figs/Density.png")
 p.set_all_properties(model='density_profile', xscale='log', yscale='log')
-p.plot_all("radius", "density") 
-p.fit_and_plot_all('nfw')                                                                                     
+p.plot_all("radius", "density")
+p.fit_and_plot_all('nfw')
+p.savefig()
 
-r = plot.Relaxation(relax, [profiles[i]['rbins'] for i in range(3)], h=16, w=16)
+r = plot.Relaxation(relax, rbins, h=16, w=16)
 r.intersect_and_plot(0, (0,0), intersect_value=1.)
 r.intersect_and_plot(1, (0,1), intersect_value=1.)
-r.intersect_and_plot(2, (0,2), intersect_value=1.)
+r.intersect_and_plot(2, (1,1), intersect_value=1.)
 r.set_all_properties(model='relaxation', xscale='log', yscale='log')
-r.savefig('Relaxation.png')
-#p.draw_line(0, (0,0), intersect(prof1['rbins'], relax1, deg=7))
-#p.draw_line(1, (1,0), intersect(prof2['rbins'], relax2, deg=7))
-p.savefig()     
+r.savefig('figs/Relaxation.png') 
+
 
 if __name__ == 'main':
     unittest.main()
