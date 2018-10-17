@@ -5,10 +5,13 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 import itertools, collections
+from scipy.optimize import curve_fit
 
 from pynbody.analysis.theoretical_profiles import NFWprofile
+from dmprofile.src.utilities import linear_function_generator
 from .fit import nfw_fit
 from .utilities import intersect, is_list_empty
+
 
 #decorator: applies the same function to all objects in _Plot._obj_list
 def do_all_objects(func):
@@ -183,8 +186,8 @@ class _Plot():
         self._set_axis_3D(axis=_axis, zlabel='', zscale='linear',
                          xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, zmin=zmin, zmax=zmax)
 
-    def binned_plot(self, axis_idx, x, y, nbins, xerr, yerr, marker, color, label):
-        """
+    def binned_plot(self, axis_idx, x, y, nbins, xerr, yerr, marker, color, label, shift, fit):
+        """x
         idx: which of the objects to plot (ordered by the constructor)
         axis_idx: where to plot the plot. Example: (0,1)
         x: unbinned 'x' data array
@@ -196,9 +199,8 @@ class _Plot():
         if type(nbins)!=int:
             raise TypeError('The number of bins has to be an integer value.')
         indexes = self._set_axis_indexes(axis_idx)
-
-        print(type(x))
-        print(x)
+        self._axis[indexes].legend().set_visible(False)
+        
         x = np.array(x)
         y = np.array(y)
         bin_edges = np.histogram(x,nbins)[1]
@@ -206,28 +208,42 @@ class _Plot():
         bin_edges = bin_edges[:-1]
 
         y_binned_values = [[] for _ in range(nbins)]
-        print(bin_edges)
-        print(bin_edges_2)
 
         for ix,iy in zip(x,y):
             for b in range(len(bin_edges)):
                 if ix>=bin_edges[b] and ix<=bin_edges_2[b]:
-                    print(bin_edges[b], bin_edges_2[b])
                     y_binned_values[b].append(iy)
 
-        print("Y_BINNED_VALUES:", y_binned_values)
         y_mean = [sum(y_binned_values[i])/len(y_binned_values[i]) if len(y_binned_values[i])!=0 else 0. for i in range(nbins)]
-        yerr = [[.2,.2,.2,.2,.2],
-                [.2,.2,.2,.2,.2]]
+        yerr = [[0,0,0,0,0],
+                [0,0,0,0,0]]
 
         #fig, ax = plt.subplots(figsize=(10,6))
         bin_centre = bin_edges + (bin_edges_2[0]-bin_edges[0])/2
+        bin_centre = bin_centre + shift
 
         self._axis[indexes].errorbar(bin_centre, y_mean, yerr=yerr, 
-                                     fmt='none', ecolor='r', capsize=3)
+                                     fmt='none', ecolor=color, capsize=3)
         self._axis[indexes].scatter(np.array(bin_centre), np.array(y_mean),
                                     marker=marker, s=40, color=color, label=label)
+        if label != '': 
+            self._axis[indexes].legend()
 
+        if fit:
+            slope, intercept = curve_fit(lambda _x,_p0,_p1: _p0*_x+_p1, bin_centre, y_mean)[0]
+            print("PARAMETERS:", slope, intercept)
+            gen_obj = linear_function_generator(slope, intercept, bin_edges[0], bin_edges_2[-1])
+            _x_fit, _y_fit = ([] for i in range(2))
+            for i in range(1000):
+                _next = next(gen_obj)
+                _x_fit.append(_next[0])
+                _y_fit.append(_next[1])
+            self._axis[indexes].plot(np.array(_x_fit), np.array(_y_fit), color='k', linewidth=1)
+            self._axis[indexes].annotate('Slope: ' + str(np.round_(slope,2)) + 
+                                         '\nInterception: ' + str(np.round_(intercept,2)), 
+                                         xy=(0.02,0.02), xycoords='axes fraction',
+                                         fontname='sans-serif', fontstyle='oblique', 
+                                         fontweight='semibold')
 
     def draw_line(self, axis_idx, value, orientation, label, color, linestyle):
         """
@@ -412,7 +428,6 @@ class Shape(_Plot):
                                     linestyle='None',label='unrelaxed structure')[0])
             handles.append(plt.plot([],[], marker='v',ms=8,c='k',
                                     linestyle='None',label='relaxed structure')[0])
-            
             self._axis[indexes].legend(handles=handles)
         else:
             relaxation_markers = ['v']*len(self._s[idx])
@@ -426,12 +441,12 @@ class Shape(_Plot):
 
 
     def binned_plot(self, idx, axis_idx, nbins, x_var, y_var, xerr=None, yerr=None,
-                    marker='o', color='b', label=''):
+                    marker='o', color='b', label='', shift=0., fit=False):
         _x, _y = self._define_vars(idx, x_var, y_var)
         super().binned_plot(axis_idx=axis_idx, 
                             x=_x, y=_y, 
                             nbins=nbins, xerr=xerr, yerr=yerr,
-                            marker=marker, color=color, label=label)
+                            marker=marker, color=color, label=label, shift=shift, fit=fit)
 
 class Concentration(_Plot):
     """
@@ -590,3 +605,19 @@ class Particles(_Plot):
         if option=='3D': self._fig, self._fig_3D = self._fig_3D, self._fig
         super().savefig(name)        
         if option=='3D': self._fig, self._fig_3D = self._fig_3D, self._fig
+
+
+###Extra plotting utilities###
+def plot_from_file(fname, splitter=',', save=''):
+    _x, _y = ([] for _ in range(2))
+    with open(fname, 'r') as f:
+        for values in f:
+            values = values.split(splitter)
+            if len(values) != 2:
+                raise RuntimeError('The file must have two data columns.')
+            _x.append(float(values[0]))
+            print(values[1])
+            _y.append(float(values[1]))
+    plt.plot(np.array(_x), np.array(_y))
+    if save!='':
+        plt.savefig(save)

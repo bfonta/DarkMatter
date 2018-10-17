@@ -1,4 +1,5 @@
 import numpy as np
+import random
 import pynbody as pn
 
 def rho_crit(sim):
@@ -31,8 +32,18 @@ def is_list_empty(l):
         return all( map(is_list_empty, l)) #all([]) is True
     return False
 
+def linear_function_generator(p1, p2, left, right):
+    while True:
+        r = random.uniform(left,right)
+        yield r, r*p1 + p2
+
 def memory_usage_resource():
     import os
     import psutil
     _process = psutil.Process(os.getpid())
     print(_process.memory_info().rss / float(2**20), "MiB being used.")
+
+def write_to_file(fname, arr1, arr2):
+    with open(fname, 'w') as f:
+        for x, y in zip(arr1,arr2):
+            f.write('{},{}\n'.format(x,y))
