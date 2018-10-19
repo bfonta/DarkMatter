@@ -11,3 +11,6 @@ s3 = "data/shape_double_3"
 pf(s1+'.txt', scatter=True)
 pf(s2+'.txt', scatter=True)
 pf(s3+'.txt', scatter=True, save='shape_double.png')
+
+if __name__ == 'main':
+    unittest.main()

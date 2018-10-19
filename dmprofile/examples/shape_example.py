@@ -22,7 +22,8 @@ DataFolder = "/fred/oz071/balves/"
 SubhalosFolder = "Test_NOSN_NOZCOOL_L010N0128/data/subhalos_103/subhalo_103"
 SnapshotFolder = "Test_NOSN_NOZCOOL_L010N0128/data/snapshot_103/snap_103.hdf5"
 
-h = Halos(os.path.join(DataFolder,SubhalosFolder), HALO_NUMBER)
+h = Halos(os.path.join(DataFolder,SubhalosFolder),
+          os.path.join(DataFolder,SubhalosFolder), HALO_NUMBER)
 halos = h.get_halos()
 
 s, M200, rel, res = ([] for i in range(4))
@@ -33,8 +34,8 @@ for i_halo in iterable:
     with centering_com(halos[i_halo]):
         r200 = halos[i_halo].properties['Halo_R_Crit200'].in_units('kpc')
         m200 = halos[i_halo].properties['Halo_M_Crit200'].in_units('Msol')
-        res.append(h.is_resolved(i_halo))
-        rel.append(h.is_relaxed(i_halo))
+        res.append(h.is_resolved(i_halo, sub_idx=0))
+        rel.append(h.is_relaxed(i_halo, sub_idx=0))
         if i_halo%100==0: print("Halo number: ", i_halo)
         s_tmp = pn.analysis.halo.halo_shape(halos[i_halo], N=1, rout=r200, bins='lin')
         if s_tmp[1]>1e-6 and s_tmp[2]>1e-6: #avoid infinities

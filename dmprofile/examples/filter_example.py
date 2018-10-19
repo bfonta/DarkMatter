@@ -22,7 +22,8 @@ DataFolder = "/fred/oz071/balves/"
 SubhalosFolder = "Test_NOSN_NOZCOOL_L010N0128/data/subhalos_103/subhalo_103"
 SnapshotFolder = "Test_NOSN_NOZCOOL_L010N0128/data/snapshot_103/snap_103.hdf5"
 
-h = Halos(os.path.join(DataFolder,SubhalosFolder), HALO_NUMBER)
+h = Halos(os.path.join(DataFolder,SubhalosFolder), 
+          os.path.join(DataFolder,SnapshotFolder), HALO_NUMBER)
 
 halo_idx = 0
 halo = h.get_halo(halo_idx)

@@ -22,7 +22,8 @@ DataFolder = "/fred/oz071/balves/"
 SubhalosFolder = "Test_NOSN_NOZCOOL_L010N0128/data/subhalos_103/subhalo_103"
 SnapshotFolder = "Test_NOSN_NOZCOOL_L010N0128/data/snapshot_103/snap_103.hdf5"
 
-h = Halos(os.path.join(DataFolder,SubhalosFolder), HALO_NUMBER)
+h = Halos(os.path.join(DataFolder,SubhalosFolder), 
+          os.path.join(DataFolder,SubhalosFolder), HALO_NUMBER)
 halos = h.get_halos()
 
 print(halos[0])
@@ -36,7 +37,7 @@ for i in iterable:
     res.append(h.is_resolved(i))
     rel.append(h.is_relaxed(i))                                                                      
 
-c_obj = plot.Concentration([c, c], extra_var=M200, name='../../figs/Concentration.png')
+c_obj = plot.Concentration([c, c], extra_var=M200, name='figs/Concentration.png')
 c_obj.set_all_properties(model='concentration_mass')
 c_obj.scatter_plot(0, (0,0), resolved_bools=res, relaxed_bools=rel)
 c_obj.scatter_plot(1, (1,0)) 
