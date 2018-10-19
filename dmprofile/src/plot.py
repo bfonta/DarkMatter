@@ -1,5 +1,3 @@
-import matplotlib
-matplotlib.use('Agg')
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -215,15 +213,16 @@ class _Plot():
                     y_binned_values[b].append(iy)
 
         y_mean = [sum(y_binned_values[i])/len(y_binned_values[i]) if len(y_binned_values[i])!=0 else 0. for i in range(nbins)]
-        yerr = [[0,0,0,0,0],
-                [0,0,0,0,0]]
 
         #fig, ax = plt.subplots(figsize=(10,6))
         bin_centre = bin_edges + (bin_edges_2[0]-bin_edges[0])/2
         bin_centre = bin_centre + shift
+        if xerr!=None:
+            xerr = [[bin_centre[0]-bin_edges[0]]*nbins, [bin_centre[0]-bin_edges[0]]*nbins]
+        yerr = [[0]*nbins, [0]*nbins]
 
-        self._axis[indexes].errorbar(bin_centre, y_mean, yerr=yerr, 
-                                     fmt='none', ecolor=color, capsize=3)
+        self._axis[indexes].errorbar(np.array(bin_centre), np.array(y_mean), 
+                                     xerr=xerr, yerr=yerr, fmt='none', ecolor=color, capsize=3)
         self._axis[indexes].scatter(np.array(bin_centre), np.array(y_mean),
                                     marker=marker, s=40, color=color, label=label)
         if label != '': 
@@ -350,11 +349,13 @@ class Shape(_Plot):
     Plots all kinds of pynbody related shapes.
 
     Args:
-    s: list of shape arrays for plotting, i.e., list of lists of pynbody shape objects
-    extra_var: list of some additional property common to all objects from which the shapes were taken
-           for example: radius, mass
+    s: List of shape arrays for plotting, i.e., list of lists of pynbody shape objects
+    extra_var: List of lists of some additional properties. Example: radius, mass
+               By default, the first list of this list is chosen for all plots
+               It can be controlled with the 'extra_idx' parameter, which follows the order
+               of the list of shape objects.
     """
-    def __init__(self, s, extra_var=[], w=10, h=9, nrows=0, ncols=0, name=''):
+    def __init__(self, s, extra_var=[[]], w=10, h=9, nrows=0, ncols=0, name=''):
         super().__init__(s, w, h, nrows, ncols, name)
         self._s = self._obj_list
         self._extra_var = extra_var
@@ -377,7 +378,7 @@ class Shape(_Plot):
             _snew.append([_a,_b,_c,_d,_e,_f])
         return _snew
 
-    def _define_vars(self, idx, x_var, y_var):
+    def _define_vars(self, idx, x_var, y_var, extra_idx=0):
         """
         Defines which arrays are to be plotted according to user input.
         See online documentation of pynbody.analysis.halo.halo_shape() method.
@@ -395,12 +396,12 @@ class Shape(_Plot):
             return _s_for_plot[idx][_match[x_var]], _s_for_plot[idx][_match[y_var]]
         else: #either x or y are not contained inside the self._s object
             if x_var not in _match.keys():
-                return self._extra_var, _s_for_plot[idx][_match[y_var]]
+                return self._extra_var[extra_idx], _s_for_plot[idx][_match[y_var]]
             else:
-                return _s_for_plot[idx][_match[x_var]], self._extra_var
+                return _s_for_plot[idx][_match[x_var]], self._extra_var[extra_idx]
 
 
-    def scatter_plot(self, idx, axis_idx, x_var, y_var, resolved_bools=[], relaxed_bools=[]):
+    def scatter_plot(self, idx, axis_idx, x_var, y_var, extra_idx=0, resolved_bools=[], relaxed_bools=[]):
         """
         Args:
         1. 'idx': pynbody shape list object. It refers to the way self._s is ordered
@@ -432,7 +433,7 @@ class Shape(_Plot):
         else:
             relaxation_markers = ['v']*len(self._s[idx])
         
-        _x, _y = self._define_vars(idx, x_var, y_var)
+        _x, _y = self._define_vars(idx, x_var, y_var, extra_idx)
         _sorted_lists = sorted(zip(_x,_y), key=lambda x: x[0])
         _x, _y = [[q[i] for q in _sorted_lists] for i in range(2)]
         
@@ -440,9 +441,9 @@ class Shape(_Plot):
             self._axis[indexes].scatter(xp, yp, c=c, marker=m)
 
 
-    def binned_plot(self, idx, axis_idx, nbins, x_var, y_var, xerr=None, yerr=None,
+    def binned_plot(self, idx, axis_idx, nbins, x_var, y_var, extra_idx=0, xerr=None, yerr=None,
                     marker='o', color='b', label='', shift=0., fit=False):
-        _x, _y = self._define_vars(idx, x_var, y_var)
+        _x, _y = self._define_vars(idx, x_var, y_var, extra_idx)
         super().binned_plot(axis_idx=axis_idx, 
                             x=_x, y=_y, 
                             nbins=nbins, xerr=xerr, yerr=yerr,
@@ -454,15 +455,17 @@ class Concentration(_Plot):
 
     Arguments:
     c: list of lists of concentration values
-    extra_var: list of some additional property common to all objects from which the shapes were taken
-           for example: radius, mass
+    extra_var: List of lists of some additional properties. Example: radius, mass
+               By default, the first list of this list is chosen for all plots
+               It can be controlled with the 'extra_idx' parameter, which follows the order
+               of the list of concentration objects.
     """
-    def __init__(self, c, extra_var=[], w=10, h=9, nrows=0, ncols=0, name=''):
+    def __init__(self, c, extra_var=[[]], w=10, h=9, nrows=0, ncols=0, name=''):
         super().__init__(c, w, h, nrows, ncols, name)
         self._c = self._obj_list
         self._extra_var = extra_var
 
-    def scatter_plot(self, idx, axis_idx, concentration_axis='y', 
+    def scatter_plot(self, idx, axis_idx, extra_idx=0, concentration_axis='y', 
                      resolved_bools=[], relaxed_bools=[]):
         """
         Args:
@@ -496,11 +499,21 @@ class Concentration(_Plot):
             self._axis[indexes].legend(handles=handles)
         else:
             relaxation_markers = ['v']*len(self._c[idx])
-        for xp, yp, c, m in zip(self._c[idx], self._extra_var, resolution_colors, relaxation_markers):
+        for xp, yp, c, m in zip(self._c[idx], self._extra_var[extra_idx], resolution_colors, relaxation_markers):
             if concentration_axis=='x':
                 self._axis[indexes].scatter(xp, yp, c=c, marker=m)
             else:
                 self._axis[indexes].scatter(yp, xp, c=c, marker=m)
+
+    def binned_plot(self, idx, axis_idx, nbins, extra_idx=0, xerr=None, yerr=None,
+                    marker='o', color='b', label='', shift=0., fit=False):
+        _x = np.array(self._extra_var[extra_idx])
+        _y = np.array(self._c[idx])
+        super().binned_plot(axis_idx=axis_idx, 
+                            x=_x, y=_y, 
+                            nbins=nbins, xerr=xerr, yerr=yerr,
+                            marker=marker, color=color, label=label, shift=shift, fit=fit)
+
 
 class Relaxation(_Plot):
     """
@@ -608,7 +621,7 @@ class Particles(_Plot):
 
 
 ###Extra plotting utilities###
-def plot_from_file(fname, splitter=',', save=''):
+def plot_from_file(fname, splitter=',', scatter=False, save=''):
     _x, _y = ([] for _ in range(2))
     with open(fname, 'r') as f:
         for values in f:
@@ -616,8 +629,10 @@ def plot_from_file(fname, splitter=',', save=''):
             if len(values) != 2:
                 raise RuntimeError('The file must have two data columns.')
             _x.append(float(values[0]))
-            print(values[1])
             _y.append(float(values[1]))
-    plt.plot(np.array(_x), np.array(_y))
+    if scatter:
+        plt.scatter(np.array(_x), np.array(_y))
+    else:
+        plt.plot(np.array(_x), np.array(_y))
     if save!='':
         plt.savefig(save)

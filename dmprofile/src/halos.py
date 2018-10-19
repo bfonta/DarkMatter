@@ -28,7 +28,7 @@ class Halos():
         if type(min_size)!=int:
             raise ValueError("The 'min_size' parameter has to be an integer")
         if min_size<1 or (type(N)==int and N<1):
-            raise ValueError('The number of selected halos has to ber larger than zero.')
+            raise ValueError('The number of selected halos has to be larger than zero.')
 
         _s_halos = pn.load(halos_filename)
         _s_halos['eps'] = 200.*pn.units.pc
@@ -43,6 +43,7 @@ class Halos():
                 warnings.warn("The specified halo number is larger than the number of halos in the simulation box.")
         _halos_tot = _s_halos.halos()
         self._halos = [item for item in _halos_tot if len(item)>=min_size]
+        
         if N!=None:
             self._halos = self._halos[:N]
         self._N = len(self._halos)
