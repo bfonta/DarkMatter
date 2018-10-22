@@ -376,6 +376,8 @@ class Shape(_Plot):
             for j in range(len(s[i])):
                 if s[i][j][1][0]==1 or s[i][j][2][0]==1:
                     raise ValueError('The triaxiality becomes NaN when either b/a or c/a are equal to one. Please do not introduce those values.')
+                if s[i][j][1][0]==0 or s[i][j][2][0]==0:
+                    raise ValueError('The triaxiality becomes NaN when either b/a or c/a are equal to zero. Please do not introduce those values.')
                 _a.append(s[i][j][0][0]) #pos
                 _b.append(s[i][j][1][0]) #b/a
                 _c.append(s[i][j][2][0]) #c/a
