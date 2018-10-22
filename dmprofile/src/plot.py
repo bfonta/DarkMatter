@@ -1,3 +1,5 @@
+import matplotlib
+matplotlib.use('TkAgg')
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -63,7 +65,7 @@ class _Plot():
         Set the axis indexes into 1D or 2D, due to matplotlib axis indexing.
         1D is needed when one plans to plot less than two pictures.
         """
-        if self._N>2:
+        if self._nrows>=2 and self._ncols>=2:
             return axis_idx[0], axis_idx[1]
         else:
             return axis_idx[0]
@@ -74,13 +76,12 @@ class _Plot():
     def set_name(self, name):
         self._name = name
 
-    def set_axis(self, idx, xlabel, ylabel, xscale='linear', yscale='linear',
+    def set_axis(self, axis_idx, xlabel, ylabel, xscale='linear', yscale='linear',
                  xmin=None, xmax=None, ymin=None, ymax=None):
         """
-        idx can be either a single value or a tuple, depending on the total number of profiles
+        axis_idx can be either a single value or a tuple, depending on the total number of profiles
         """
-        if self._N>2: indexes = idx[0], idx[1]
-        else:         indexes = idx[0]
+        indexes = self._set_axis_indexes(axis_idx)
 
         if xmin!=None and xmax!=None:
             self._axis[indexes].set_xlim([xmin,xmax])
@@ -184,7 +185,8 @@ class _Plot():
         self._set_axis_3D(axis=_axis, zlabel='', zscale='linear',
                          xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, zmin=zmin, zmax=zmax)
 
-    def binned_plot(self, axis_idx, x, y, nbins, xerr, yerr, marker, color, label, shift, fit):
+    def binned_plot(self, axis_idx, x, y, nbins, xerr, yerr, 
+                    marker, color, label, shift, fit, xscale):
         """x
         idx: which of the objects to plot (ordered by the constructor)
         axis_idx: where to plot the plot. Example: (0,1)
@@ -201,21 +203,24 @@ class _Plot():
         
         x = np.array(x)
         y = np.array(y)
-        bin_edges = np.histogram(x,nbins)[1]
+        if xscale=='log':
+            bin_edges = np.logspace(np.log10(np.amin(x)), np.log10(np.amax(x)), nbins+1)
+        else:
+            bin_edges = np.histogram(x,nbins)[1]
         bin_edges_2 = np.roll(bin_edges,-1)[:-1]
         bin_edges = bin_edges[:-1]
 
         y_binned_values = [[] for _ in range(nbins)]
 
         for ix,iy in zip(x,y):
-            for b in range(len(bin_edges)):
+            for b in range(nbins):
                 if ix>=bin_edges[b] and ix<=bin_edges_2[b]:
                     y_binned_values[b].append(iy)
 
         y_mean = [sum(y_binned_values[i])/len(y_binned_values[i]) if len(y_binned_values[i])!=0 else 0. for i in range(nbins)]
 
         #fig, ax = plt.subplots(figsize=(10,6))
-        bin_centre = bin_edges + (bin_edges_2[0]-bin_edges[0])/2
+        bin_centre = bin_edges + (bin_edges_2-bin_edges)/2
         bin_centre = bin_centre + shift
         if xerr!=None:
             xerr = [[bin_centre[0]-bin_edges[0]]*nbins, [bin_centre[0]-bin_edges[0]]*nbins]
@@ -369,6 +374,8 @@ class Shape(_Plot):
         for i in range(len(s)):
             _a, _b, _c, _d, _e, _f = ([] for i in range(6))
             for j in range(len(s[i])):
+                if s[i][j][1][0]==1 or s[i][j][2][0]==1:
+                    raise ValueError('The triaxiality becomes NaN when either b/a or c/a are equal to one. Please do not introduce those values.')
                 _a.append(s[i][j][0][0]) #pos
                 _b.append(s[i][j][1][0]) #b/a
                 _c.append(s[i][j][2][0]) #c/a
@@ -417,14 +424,14 @@ class Shape(_Plot):
         if not is_list_empty(resolved_bools):
             grey = (0.2,0.2,0.2)
             lightgrey = (0.6,0.6,0.6)
-            resolution_colors = [lightgrey if resolved_bools[i]==False else grey for i in range(len(self._s[idx]))]
+            resolution_colors = [lightgrey if resolved_bools[i]==False else grey for i in range(len(resolved_bools))]
             handles.append(mpatches.Patch(color=lightgrey, label='unresolved structures'))
             handles.append(mpatches.Patch(color=grey, label='resolved structures'))
         else:
             resolution_colors = [(0.4,0.4,0.4)]*len(self._s[idx])
 
         if not is_list_empty(relaxed_bools):
-            relaxation_markers = ['o' if relaxed_bools[i]==False else 'v' for i in range(len(self._s[idx]))]  
+            relaxation_markers = ['o' if relaxed_bools[i]==False else 'v' for i in range(len(relaxed_bools))]  
             handles.append(plt.plot([],[], marker='o',ms=8,c='k',
                                     linestyle='None',label='unrelaxed structure')[0])
             handles.append(plt.plot([],[], marker='v',ms=8,c='k',
@@ -442,12 +449,12 @@ class Shape(_Plot):
 
 
     def binned_plot(self, idx, axis_idx, nbins, x_var, y_var, extra_idx=0, xerr=None, yerr=None,
-                    marker='o', color='b', label='', shift=0., fit=False):
+                    marker='o', color='b', label='', shift=0., fit=False, xscale='linear'):
         _x, _y = self._define_vars(idx, x_var, y_var, extra_idx)
         super().binned_plot(axis_idx=axis_idx, 
                             x=_x, y=_y, 
                             nbins=nbins, xerr=xerr, yerr=yerr,
-                            marker=marker, color=color, label=label, shift=shift, fit=fit)
+                            marker=marker, color=color, label=label, shift=shift, fit=fit, xscale=xscale)
 
 class Concentration(_Plot):
     """
@@ -506,13 +513,13 @@ class Concentration(_Plot):
                 self._axis[indexes].scatter(yp, xp, c=c, marker=m)
 
     def binned_plot(self, idx, axis_idx, nbins, extra_idx=0, xerr=None, yerr=None,
-                    marker='o', color='b', label='', shift=0., fit=False):
+                    marker='o', color='b', label='', shift=0., fit=False, xscale='linear'):
         _x = np.array(self._extra_var[extra_idx])
         _y = np.array(self._c[idx])
         super().binned_plot(axis_idx=axis_idx, 
                             x=_x, y=_y, 
                             nbins=nbins, xerr=xerr, yerr=yerr,
-                            marker=marker, color=color, label=label, shift=shift, fit=fit)
+                            marker=marker, color=color, label=label, shift=shift, fit=fit, xscale=xscale)
 
 
 class Relaxation(_Plot):
