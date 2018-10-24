@@ -1,5 +1,5 @@
 import matplotlib
-matplotlib.use('TkAgg')
+matplotlib.use('Agg')
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -8,10 +8,9 @@ import itertools, collections
 from scipy.optimize import curve_fit
 
 from pynbody.analysis.theoretical_profiles import NFWprofile
-from dmprofile.src.utilities import linear_function_generator
+from dmprofile.src.utilities import linear_function_generator, remove_low_occupancy_bins
 from .fit import nfw_fit
 from .utilities import intersect, is_list_empty
-
 
 #decorator: applies the same function to all objects in _Plot._obj_list
 def do_all_objects(func):
@@ -67,7 +66,9 @@ class _Plot():
         """
         if self._nrows>=2 and self._ncols>=2:
             return axis_idx[0], axis_idx[1]
-        else:
+        else if self.nrows==1:
+            return axis_idx[1]
+        else: #ncols==1 & nrows>=2
             return axis_idx[0]
 
     def set_title(self, title):
@@ -186,7 +187,8 @@ class _Plot():
                          xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, zmin=zmin, zmax=zmax)
 
     def binned_plot(self, axis_idx, x, y, nbins, xerr, yerr, 
-                    marker, color, label, shift, fit, xscale):
+                    marker, color, label, shift, fit, xscale,
+                    min_bins=3):
         """x
         idx: which of the objects to plot (ordered by the constructor)
         axis_idx: where to plot the plot. Example: (0,1)
@@ -206,7 +208,11 @@ class _Plot():
         if xscale=='log':
             bin_edges = np.logspace(np.log10(np.amin(x)), np.log10(np.amax(x)), nbins+1)
         else:
-            bin_edges = np.histogram(x,nbins)[1]
+            _hh = np.histogram(x,nbins)
+            print("HHHHHHH", _hh[0])
+            bin_edges = remove_low_occupancy_bins(_hh, min_bins)
+            nbins = len(bin_edges)-1
+
         bin_edges_2 = np.roll(bin_edges,-1)[:-1]
         bin_edges = bin_edges[:-1]
 
@@ -222,8 +228,9 @@ class _Plot():
         #fig, ax = plt.subplots(figsize=(10,6))
         bin_centre = bin_edges + (bin_edges_2-bin_edges)/2
         bin_centre = bin_centre + shift
+
         if xerr!=None:
-            xerr = [[bin_centre[0]-bin_edges[0]]*nbins, [bin_centre[0]-bin_edges[0]]*nbins]
+            xerr = [list(bin_centre-shift-bin_edges), list(bin_centre-shift-bin_edges)]
         yerr = [[0]*nbins, [0]*nbins]
 
         self._axis[indexes].errorbar(np.array(bin_centre), np.array(y_mean), 
