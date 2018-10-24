@@ -71,20 +71,20 @@ def memory_usage_resource():
     _process = psutil.Process(os.getpid())
     print(_process.memory_info().rss / float(2**20), "MiB being used.")
 
-def write_to_file(fname, *args, mode='normal', hdf5_shape=(0,0)):
+def write_to_file(fname, *args, mode='standard'):
     """
     Write to files a length variable group of arrays.
     Works both with numpy arrays and lists.
     """
-    modes = ['normal','hdf5']
+    extension = {'txt'}
+    ext = fname.split('.')
+    if len(ext)==1:
+        raise ValueError('Please add an extension to the name of the file.')
+    if ext[1] not in extension:
+        raise ValueError('The file cannot be saved with that extension.')
+    modes = {'standard','shape'}
     if mode not in modes:
         raise ValueError('The specified mode is not supported.')
-    if mode=='hdf5' and hdf5_shape==(0,0,0):
-        raise ValueError('Please specify a valid shape for the hdf5 dataset.')
-    if mode=='hdf5' and fname[-5:]!='.hdf5':
-        raise ValueError('Please specify an appropriate name for a hdf5 file.')
-    if len(hdf5_shape)!=2:
-        raise TypeError('Currently only 2D hdf5 datasets can be stored.')
     if len(args)<2:
         raise ValueError('At least to arrays must be written to the file.')
     if not type(fname)==str:
@@ -93,17 +93,13 @@ def write_to_file(fname, *args, mode='normal', hdf5_shape=(0,0)):
         if not isinstance(arg, (list, np.ndarray)):
             raise TypeError('Except for the file name, all other arguments must be numpy arrays.')
 
-    if mode=='hdf5':
-        with h5py.File(fname, 'w') as f:
-            dset = f.create_dataset('shape_dataset', hdf5_shape)
-            counter = 0
+    if mode=='shape':
+        with open(fname, 'w') as f:    
             for x, *data in zip(*args):
-                print("TYPE::", x)
-                print("ID:", counter)
-                dset[counter,0]=x[1][0]
-                dset[counter,1]=x[2][0]
-                dset[counter,2]=data[0]
-                counter += 1
+                blanks = '{},'*len(args)+'\n'
+                f.write('{},{},'.format(x[1][0],x[2][0]))
+                f.write('{}\n'.format(data[0]))
+
     else:
         with open(fname, 'w') as f:    
             for x, *data in zip(*args):
@@ -115,21 +111,47 @@ def write_to_file(fname, *args, mode='normal', hdf5_shape=(0,0)):
                     else:
                         f.write('{},'.format(data[i]))
 
-def read_from_file(fname, splitter=',', mode='normal'):
-    modes = ['normal','hdf5']
+def read_from_file(fname, splitter=',', mode='standard'):
+    """
+    File types: 'txt'
+
+    Modes: 'standard', 'shape'
+    The 'standard' mode assumes that the data is stored in a plain format, like:
+    1.1,4.3,0.5,...
+    2.1,5.9,2.4,...
+    3.4,10.2,8.2,...
+    ...
+
+    The 'shape' mode was created to deal with the way the plotting of the pynbody shape
+    is done in this package ('dmprofile'). The shape, when stored, is a pynbody array 
+    which includes the position, b/a, c/a, alignment and rotation matrix. As such, it 
+    cannot be read with the 'standard' mode. The method return the shape plus an additional
+    variable, such as the mass or the radius, for instance. 
+    """
+    extension = {'txt'}
+    ext = fname.split('.')
+    if len(ext)==1:
+        raise ValueError('Please add an extension to the name of the file.')
+    if ext[1] not in extension:
+        raise ValueError('The file cannot be saved with that extension.')
+    modes = {'standard', 'shape'}
     if mode not in modes:
         raise ValueError('The specified mode is not supported.')
 
-    if mode=='hdf5':
+    if mode=='shape':
         ba, ca, extra = ([] for i in range(3))
-        with h5py.File(fname, 'r') as f:
-            dset = f['shape_dataset']
-            counter = 0
-            for i in range(dset.shape[0]):
-                ba.append(dset[i,0])
-                ca.append(dset[i,1])
-                extra.append(dset[i,2])
-        return ba, ca, extra
+        with open(fname, 'r') as f:
+            for values in f:
+                values = values.replace('\n','').split(splitter)
+                ba.append(float(values[0]))
+                ca.append(float(values[1]))
+                extra.append(float(values[2]))
+        assert len(ba)==len(ca)
+        s = []
+        for i in range(len(ba)):
+            triax = (1-ba[i])**2 / (1-ca[i])**2
+            s.append([[0.],[ba[i]],[ca[i]],[0.],[0.],[triax]])
+        return s, extra
 
     else:
         with open(fname) as f:
