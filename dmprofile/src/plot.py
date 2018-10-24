@@ -66,7 +66,7 @@ class _Plot():
         """
         if self._nrows>=2 and self._ncols>=2:
             return axis_idx[0], axis_idx[1]
-        elif self.nrows==1:
+        elif self._nrows==1:
             return axis_idx[1]
         else: #ncols==1 & nrows>=2
             return axis_idx[0]
