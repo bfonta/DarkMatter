@@ -16,7 +16,7 @@ class Halos():
     __slots__ = ['_sim', '_N', '_halos', '_halos_bak', 
                  '_subhalos', '_subhalos_bak', '_vars', '_mbp']
 
-    def __init__(self, halos_filename, sim_filename, N=None, min_size=300):
+    def __init__(self, halos_filename, sim_filename='', N=None, min_size=300):
         """
         Tasks:
         1. Loads the halos and full simulation. Make sure they correspond to the same particles.
@@ -33,10 +33,12 @@ class Halos():
         _s_halos = pn.load(halos_filename)
         _s_halos['eps'] = 200.*pn.units.pc
         _s_halos.physical_units()
-
-        self._sim = pn.load(sim_filename)
-        self._sim['eps'] = 200.*pn.units.pc
-        self._sim.physical_units()
+        
+        self._sim = None
+        if sim_filename!='':
+            self._sim = pn.load(sim_filename)
+            self._sim['eps'] = 200.*pn.units.pc
+            self._sim.physical_units()
 
         if N!=None:
             if N>len(_s_halos): 
@@ -59,6 +61,9 @@ class Halos():
             self._subhalos[_i].extend((_isub, self._halos[_i].sub[_isub]) for _isub in range(length))
         self._subhalos_bak = self._subhalos.copy()
 
+        print("LEN", len(self._halos))
+        print("LEN", len(self._subhalos))
+        print("LEN", len(self._subhalos_bak))
 
         ###################################################################################
         #most bound particle positions
@@ -114,7 +119,7 @@ class Halos():
                 return self._vars["r200_"+str(idx)]
 
     def _get_mbp(self, idx):
-        return self._mbp
+        return self._mbp[idx]
 
     def _check_backup(self, idx, sub_idx=-1):
         if sub_idx < 0:
@@ -123,16 +128,27 @@ class Halos():
             return self._subhalos[idx][sub_idx]==self._subhalos_bak[idx][sub_idx]
 
     def get_shape(self, idx, sub_idx=-1):
-        #_r200 = self._get_r200(idx)
+        """
+        Returns a pynbody shape. 
+        Returns -1 (error) if: 1) The halo has no subhalos
+                               2) Either b/a or c/a are 0 or 1 
+                                  (since this is unphysical and leads to undefined triaxiality)
+        """
         if sub_idx<0:
             with centering_com(self._halos[idx]):
-                return pn.analysis.halo.halo_shape(self._halos[idx], 
-                                                   N=1, bins='lin')
+                shape = pn.analysis.halo.halo_shape(self._halos[idx], 
+                                                    N=1, bins='lin')
         else:
+            if len(self._subhalos[idx])==0:
+                warnings.warn('This halo has no subhalos!')
+                return -1
             with centering_com(self._subhalos[idx][sub_idx][1]):
-                print("DDDD", com(self._subhalos[idx][sub_idx][1]))
-                return pn.analysis.halo.halo_shape(self._subhalos[idx][sub_idx][1], 
+                shape = pn.analysis.halo.halo_shape(self._subhalos[idx][sub_idx][1], 
                                                    N=1, bins='lin')
+        if shape[1]>1e-5 and shape[2]>1e-5 and shape[1]<.99999 and shape[2]<.99999:
+            return shape
+        else:
+            return -1
 
     def get_mass200(self, idx):
         try:
@@ -176,6 +192,8 @@ class Halos():
               More filters can be added to 'filter_dict' in the same fashion with variable 
               number of arguments.
         """
+        if self._sim==None and sim:
+            ValueError('Using the simulation in the filtering requires defining the simulation in the class constructor.')
         if type(halo_idxs) != int and type(halo_idxs) != set:
             raise TypeError('The introduced indexes have the wrong format')
         if type(halo_idxs) is int:
@@ -209,8 +227,7 @@ class Halos():
             with centering_com(self._halos[i]):
                 if sub_idx < 0: #filter the halo
                     if not self._check_backup(i):
-                        print(self._check_backup(i))
-                        raise warnings.warn('This halo backup is already being used!')
+                        warnings.warn('This halo backup is already being used!')
                     self._halos_bak[i] = copy.copy(self._halos[i])
 
                     if sim:
@@ -221,7 +238,7 @@ class Halos():
                                                                  self._halos[i])]
                 else: #filter the halo but centered in the subhalo
                     if not self._check_backup(i):
-                        raise warnings.warn('This subhalo backup is already being used!')
+                        warnings.warn('This subhalo backup is already being used!')
                     if self._subhalos[i][sub_idx][0] != sub_idx:
                         raise RuntimeError('Different subhalos are being mixed!')
                         self._subhalos_bak[i][sub_idx] = self._subhalos[i][sub_idx]
@@ -242,7 +259,8 @@ class Halos():
             _h = self._halos[halo_idx]
         else:
             if len(self._subhalos[halo_idx])==0:
-                raise RuntimeError('This halo has no subhalos!')
+                warnings.warn('This halo has no subhalos!')
+                return -1
             _h = self._subhalos[halo_idx][sub_idx][1]
         with centering_com(_h): #centering the main halo
             print("COM after centering in is_relaxed():", com(_h))
@@ -254,12 +272,15 @@ class Halos():
         return bool(_dist < 0.07*_r200)
 
     def is_resolved(self, halo_idx, sub_idx=-1, intersect_value=1.):
+        """
+        Return either a boolean or -1, when the density profile is zero somewhere in the middle.
+        """
         if sub_idx < 0:
             _h = self._halos[halo_idx]
         else:
             if len(self._subhalos[halo_idx])==0:
-                raise RuntimeError('This halo has no subhalos!')
-            print("CHECK")
+                warnings.warn('This halo has no subhalos!')
+                return -1
             _h = self._subhalos[halo_idx][sub_idx][1]
         with centering_com(_h): #centering the main halo
             print("Halo is_resolved():", _h)
@@ -268,12 +289,14 @@ class Halos():
             _prof = self.get_profile(halo_idx, sub_idx, component='dm', bins=(2.5,30.,18),
                                      bin_type='log', normalize_x=False)
             _relax = self.relaxation(halo_idx, sub_idx, _prof)
+            if len(_relax[0])==1 and len(_relax[1])==1:
+                return -1
             _inter = intersect(_relax[1], _relax[0], intersect_value=intersect_value)
             if _inter[1]==True:            
                 return _inter[0] < _r200*np.power(10,-1.25)
             else:
                 print("Halo number:", halo_idx)
-                raise RuntimeError('No intersection was found for this halo. The resolution criteria cannot thus be checked.')
+                warning.warn('No intersection was found for this halo. The resolution criteria cannot thus be checked. The halo is assumed to be relaxed.')
                 return True 
 
     def get_halo(self, halo_idx):
@@ -310,6 +333,10 @@ class Halos():
         if sub_idx<0:
             _current_halo = self._halos[idx] 
         else:
+            print('Concentration index:', idx)
+            if len(self._subhalos[idx])==0:
+                warnings.warn('This halo has no subhalos!')
+                return -1
             _current_halo = self._subhalos[idx][sub_idx][1]
 
         with centering_com(_current_halo):
@@ -323,6 +350,9 @@ class Halos():
                                         bins=bins, bin_type=bin_type, 
                                         normalize_x=normalize_x)
             print(_profile['density'])
+            if not np.any(_profile['density']):
+                warnings.warn('The density array is filled with zeros. The concentration cannot be correctly evaluated.')
+                return -1
             _rs = nfw_fit(_profile)[1]
             print(_r200, _rs)
         return _r200/_rs
@@ -418,7 +448,8 @@ class Halos():
             else:
                 if _density[zero_idxs[0]+1]>0:
                     print(_density)
-                    raise ValueError('One of the density values not in the far end of the distribution is zero.')
+                    warnings.warn('One of the density values not in the far end of the distribution is zero. The relaxation cannot thus be calculated.')
+                    return np.zeros(1), np.zeros(1)
                 else: 
                     _density[_density>0]
                     _rbins[_density>0]

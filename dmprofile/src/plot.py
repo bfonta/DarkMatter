@@ -249,7 +249,7 @@ class _Plot():
                 _next = next(gen_obj)
                 _x_fit.append(_next[0])
                 _y_fit.append(_next[1])
-            self._axis[indexes].plot(np.array(_x_fit), np.array(_y_fit), color='k', linewidth=1)
+            self._axis[indexes].plot(np.array(_x_fit), np.array(_y_fit), color=color, linewidth=.6)
             self._axis[indexes].annotate('Slope: ' + str(np.round_(slope,2)) + 
                                          '\nInterception: ' + str(np.round_(intercept,2)), 
                                          xy=(0.02,0.02), xycoords='axes fraction',
