@@ -16,77 +16,67 @@ import dmprofile
 from dmprofile.src.halos import Halos
 from dmprofile.src import plot
 from dmprofile.src.utilities import rho_crit, intersect
-from dmprofile.src.move import centering_com
+from dmprofile.src.move import centering_com, centering_mbp
 from dmprofile.src.parser import parser
+from dmprofile.src.utilities import write_to_file as wf
 
 print("################################################################")
 print("################Code is now running#############################")
 print("################################################################")
 
-BIN_NUMBER = 20
-
-path_first = '/fred/oz071/aduffy/Smaug/DMONLY_L010N0256/data'
+size = '256'
+addition = ''
+if size=='128': additon='.hdf5'
+path_first = '/fred/oz071/aduffy/Smaug/WTHERM_LateRe_L010N0'+size+'/data'
 path1 = os.path.join(path_first, 'subhalos_103/subhalo_103')
-path2 = os.path.join(path_first, 'snapshot_103/snap_103')
+path2 = os.path.join(path_first, 'snapshot_103/snap_103'+addition)
 
-h = Halos(path1, path2, N=10, min_size=300)
-N = h.get_number_halos()
-h.filter_(halo_idxs=0, sub_idx=0, filter_str='Sphere_1.2', option='all', sim=True)
+min_size1=1000
+h1 = Halos(path1, min_size=min_size1)
+N1 = h1.get_number_halos()
 
-s, M200, rel, res = ([] for i in range(4))
-#exceptions = [1,2,15,61,170,173]
-exceptions = [1,2,15,61,170,173]
-ids = [i for i in range(N) if i not in exceptions]
-for i_halo in ids:
-    with centering_com(h.get_halo(i_halo)):
-        m200 = h.get_mass200(i_halo)
-        res.append(h.is_resolved(i_halo))
-        rel.append(h.is_relaxed(i_halo))
-        s_tmp = h.get_shape(i_halo)
-        if s_tmp[1]>1e-6 and s_tmp[2]>1e-6: #avoid infinities
-            M200.append(np.log10(m200))
-            s.append(s_tmp)
+c1, M200_1, M200_shape_1, res1, rel1, s1 = ([] for i in range(6))
+#2,6,14,25,27,46,54,91,116,117,122]
+for i in range(N1):
+    print("HALO:", i)
+    with centering_com(h1.get_halo(i)):
+        print(h1.get_halo(i))
+        isres = h1.is_resolved(i, sub_idx=0)        
+        isrel = h1.is_relaxed(i, sub_idx=0)
+        relax_tmp = h1.concentration_200(idx=i, sub_idx=0)
+        s_tmp = h1.get_shape(i, 0)
+        if s_tmp!=-1 and isres!=-1 and relax_tmp!=-1 and isrel!=-1:
+            M200_1.append(h1.get_mass200(i))
+            res1.append(isres)     
+            rel1.append(isrel)
+            c1.append(relax_tmp)
+            M200_shape_1.append(np.log10(h1.get_mass200(i)))
+            s1.append(s_tmp)
 
-shape = plot.Shape([s, s, s], M200, name="figs/Shape.png", w=11, h=10)
-shape.set_axis((0,0), xlabel=r'$\log_{10}(M)$ [M$_{\odot}$]', ylabel='b/a',
-               xscale='log', yscale='linear')
-shape.set_axis((0,1), xlabel=r'$\log_{10}(M)$ [M$_{\odot}$]', ylabel='c/a',
-               xscale='log', yscale='linear')
-shape.set_axis((1,1), xlabel=r'$\log_{10}(M)$ [M$_{\odot}$]', ylabel='triaxiality',
-               xscale='log', yscale='linear')
+#########
+min_size2=500
+h2 = Halos(path1, min_size=min_size2)
+N2 = h2.get_number_halos()
 
-shape.scatter_plot(0, axis_idx=(0,0), x_var="mass", y_var="b/a",
-                   resolved_bools=res, relaxed_bools=rel)
-shape.scatter_plot(1, axis_idx=(0,1), x_var="mass", y_var="c/a",
-                   resolved_bools=res, relaxed_bools=rel)
-shape.scatter_plot(2, axis_idx=(1,1), x_var="mass", y_var="triax",
-                   resolved_bools=res, relaxed_bools=rel)
-shape.binned_plot(0, axis_idx=(1,0), nbins=5, x_var="mass", y_var="triax",
-                  color='b') 
-shape.binned_plot(1, axis_idx=(1,0), nbins=5, x_var="mass", y_var="triax",
-                  color='r', shift=0.04) 
-shape.binned_plot(2, axis_idx=(1,0), nbins=5, x_var="mass", y_var="triax",
-                  color='g', shift=0.08) 
-shape.savefig()
+c2, M200_2, M200_shape_2, res2, rel2, s2 = ([] for i in range(6))
+for i in range(N2):
+    print("HALO:", i)
+    with centering_com(h2.get_halo(i)):
+        isres = h2.is_resolved(i, sub_idx=0)
+        isrel = h2.is_relaxed(i, sub_idx=0)
+        relax_tmp = h2.concentration_200(idx=i, sub_idx=0)
+        s_tmp = h2.get_shape(i, 0)
+        if isres!=-1 and relax_tmp!=-1 and isrel!=-1 and s_tmp!=-1:
+            M200_2.append(h2.get_mass200(i))
+            res2.append(isres)     
+            rel2.append(isrel)
+            c2.append(relax_tmp)
+            M200_shape_2.append(np.log10(h2.get_mass200(i)))
+            s2.append(s_tmp)
 
-"""
-profiles, relax, rbins = ([] for i in range(3))
-for i in range(2,5):
-    profiles.append(h.get_profile(i,component='dm',bins=(2.,15,BIN_NUMBER),bin_type='log',normalize=False))
-    _rel = h.relaxation(i, profiles[-1])
-    relax.append(_rel[0])
-    rbins.append(_rel[1])
-
-p = plot.Profile(profiles, name="figs/Density.png")
-p.set_all_properties(model='density_profile', xscale='log', yscale='log')
-p.plot_all("radius", "density")
-p.fit_and_plot_all('nfw')
-p.savefig()
-
-r = plot.Relaxation(relax, rbins, h=16, w=16)
-r.intersect_and_plot(0, (0,0), intersect_value=1.)
-r.intersect_and_plot(1, (0,1), intersect_value=1.)
-r.intersect_and_plot(2, (1,1), intersect_value=1.)
-r.set_all_properties(model='relaxation', xscale='log', yscale='log')
-r.savefig('figs/Relaxation.png')
-"""
+file_w1 = len(s1)
+file_w2 = len(s2)
+wf('data/Concentration_'+str(min_size1)+'_'+size+'.txt', c1, M200_1, res1, rel1)
+wf('data/Concentration_'+str(min_size2)+'_'+size+'.txt', c2, M200_2, res2, rel2)
+wf('data/Shape_'+str(min_size1)+'_'+size+'.txt', s1, M200_shape_1, mode='shape')
+wf('data/Shape_'+str(min_size2)+'_'+size+'.txt', s2, M200_shape_2, mode='shape')
