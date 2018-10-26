@@ -30,7 +30,7 @@ h.get_subhalos()
 ```
 where the last two line retrieve all the available halos and subhalos, respectively. For a more comprehensive example, please see `script1.sh`, or check the examples in the `/dmprofile/examples/` folder. To run them, just do 
 
-``bash
+```bash
 python dmprofile/examples/<name of the example>` 
 ```
 from a directory placed above the package directory.
