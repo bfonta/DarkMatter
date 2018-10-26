@@ -83,4 +83,4 @@ for k,v in FLAGS.__dict__.items():
 
 *This package is part of an internship at Swinburne University of Technology, Melbourne.*
 
-*Please contact me at bfontanasantosalves@swin.edu.au.*
+*You may contact me at bfontanasantosalves@swin.edu.au.*
