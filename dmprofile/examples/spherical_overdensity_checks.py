@@ -32,7 +32,6 @@ exceptions = []
 ids = [i for i in range(N1) if i not in exceptions]
 for i_halo in ids:
     _halo = h1.get_subhalo(i_halo)
-    print("BYE!",_halo)
     with centering_com(_halo):
         m200 = h1.get_mass200(i_halo)
         res.append(h1.is_resolved(i_halo, intersect_value=0.7))
@@ -122,57 +121,6 @@ par3b = (1-np.array(par1b))**2 / (1-np.array(par2b))**2
 wf("data/shape_double_1.txt",np.array(par1a),np.array(par1b))
 wf("data/shape_double_2.txt",np.array(par2a),np.array(par2b))
 wf("data/shape_double_3.txt",np.array(par3a),np.array(par3b))
-
-"""
-c1, M200_1, res, rel = ([] for i in range(4))
-exceptions = [2,18]
-ids = [i for i in range(N1) if i not in exceptions]
-for i in ids:
-    print("HALO:", i)
-    with centering_com(h1.get_halo(i)):
-        M200_1.append(h1.get_mass200(i))
-        c1.append(h1.concentration_200(idx=i, sub_idx=0))
-        res.append(h1.is_resolved(i))
-        rel.append(h1.is_relaxed(i))
-
-c_obj = plot.Concentration([c1, c1], extra_var=M200_1, name='figs/Concentration_with_filter.png')
-c_obj.set_all_properties(model='concentration_mass')
-c_obj.scatter_plot(0, (0,0), resolved_bools=res, relaxed_bools=rel)
-c_obj.scatter_plot(1, (1,0), resolved_bools=res, relaxed_bools=rel)
-c_obj.savefig()
-"""
-
-#del h1
-
-"""
-h2 = Halos(path1, path2, N=22, min_size=300)
-N2 = h2.get_number_halos()
-
-c2, M200_2, res, rel = ([] for i in range(4))
-exceptions = [2,18]
-ids = [i for i in range(N2) if i not in exceptions]
-for i in ids:
-    print("HALO:", i)
-    with centering_com(h2.get_halo(i)):
-        M200_2.append(h2.get_mass200(i))
-        c2.append(h2.concentration_200(idx=i, sub_idx=0))
-        res.append(h2.is_resolved(i))
-        rel.append(h2.is_relaxed(i))
-
-c_obj = plot.Concentration([c2, c2], extra_var=M200_2, name='figs/Concentration.png')
-c_obj.set_all_properties(model='concentration_mass')
-c_obj.scatter_plot(0, (0,0), resolved_bools=res, relaxed_bools=rel)
-c_obj.scatter_plot(1, (1,0), resolved_bools=res, relaxed_bools=rel)
-c_obj.savefig()
-
-for i in range(len(M200_1)):
-    print(M200_1[i], M200_2[i])
-print("Before assert")
-assert M200_1==M200_2
-print("After assert")
-
-wf("data/concentration_double.txt",np.array(c1),np.array(c2))
-"""
 
 if __name__ == 'main':
     unittest.main()
