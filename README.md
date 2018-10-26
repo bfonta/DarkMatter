@@ -62,8 +62,8 @@ This class is currently able to plot:
 * Relaxation
 * Simple particle distributions
 
-Example of a plot produced with `script1.py`:
 [Shape]: https://github.com/b-fontana/DarkMatter/blob/master/Shape.png
+Example of a plot produced with `script1.py`:
 ![Shape][Shape]
  
 
