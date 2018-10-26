@@ -81,4 +81,4 @@ for k,v in FLAGS.__dict__.items():
 
 3. NFW_fit (`dmprofile/src/fit.py`) and centering function for the whole simulation and individual halos and subhalos (`dmprofile/src/move.py`). The latter file includes an additional function that is currently not operational.
 
-*This package is part of an internship at Swinburne University of Technology, Melbourne. Please contact me at bfontanasantosalves@swin.edu.au. *
+*This package is part of an internship at Swinburne University of Technology, Melbourne. Please contact me at bfontanasantosalves@swin.edu.au.*
