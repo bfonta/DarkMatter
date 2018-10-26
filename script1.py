@@ -8,7 +8,6 @@ import sys
 import glob
 import gzip
 import argparse
-import pynbody as pn
 
 import numpy as np
 
@@ -17,23 +16,22 @@ from dmprofile.src.halos import Halos
 from dmprofile.src import plot
 from dmprofile.src.utilities import rho_crit, intersect
 from dmprofile.src.move import centering_com, centering_mbp
-from dmprofile.src.parser import parser
+from dmprofile.src.parser import add_args
 from dmprofile.src.utilities import write_to_file as wf
 
-print("################################################################")
-print("################Code is now running#############################")
-print("################################################################")
+FLAGS, _ = add_args(argparse.ArgumentParser())
+print("Parsed arguments:")
+for k,v in FLAGS.__dict__.items():
+    print('{}: {}'.format(k,v))
 
-st = ['DMONLY', 'REF_LateRe', 'REF_NOZCOOL', 'REF_NOZCOOL_LateRe', 'WTHERM_LateRe']
-size = '256'
-addition = ''
-if size=='128': additon='.hdf5'
-path_first = ['/fred/oz071/aduffy/Smaug/'+st[i]+'_L010N0'+size+'/data' for i in range(len(st))]
+st = FLAGS.sim_types
+addition = '' 
+if FLAGS.sim_size=='128': additon='.hdf5'
+path_first = ['/fred/oz071/aduffy/Smaug/'+st[i]+'_L010N0'+FLAGS.sim_size+'/data' for i in range(len(st))]
 path1 = [os.path.join(path_first[i], 'subhalos_103/subhalo_103') for i in range(len(st))]
 path2 = [os.path.join(path_first[i], 'snapshot_103/snap_103'+addition) for i in range(len(st))]
 
-min_size=300
-h = [Halos(path1[i], min_size=min_size) for i in range(len(st))]
+h = [Halos(path1[i], min_size=FLAGS.sim_min_particle_number) for i in range(len(st))]
 N = [h[i].get_number_halos() for i in range(len(st))]
 
 for isim in range(len(st)):
@@ -54,6 +52,7 @@ for isim in range(len(st)):
                 c.append(relax_tmp)
                 M200_shape.append(np.log10(h[isim].get_mass200(i)))
                 s.append(s_tmp)
-    wf('data/Concentration_'+st[isim]+'_'+str(min_size)+'_'+size+'.txt', c, M200, res, rel)
-    wf('data/Shape_'+st[isim]+'_'+str(min_size)+'_'+size+'.txt', s, M200_shape, mode='shape')
-
+    wf('data/Concentration_'+st[isim]+'_'+str(FLAGS.sim_min_particle_number)+
+       '_'+FLAGS.sim_size+'.txt', c, M200, res, rel)
+    wf('data/Shape_'+st[isim]+'_'+str(FLAGS.sim_min_particle_number)+
+       '_'+FLAGS.sim_size+'.txt', s, M200_shape, mode='shape')
