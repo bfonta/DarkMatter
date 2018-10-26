@@ -16,7 +16,7 @@ cd DarkMatter/
 ```
 and try the examples.
 
-* Pip install (gets the latest release, which does not necessarily correspond to the code on this repository):
+* Pip install (installs the latest release, which does not necessarily correspond to the code in this repository):
 
 ```bash
 pip install dmprofile
@@ -63,7 +63,7 @@ This class is currently able to plot:
 * Simple particle distributions
 
 [Shape]: https://github.com/b-fontana/DarkMatter/blob/master/Shape.png
-Example of a plot produced with `script1.py`:
+Example of a plot produced with `script1.py`, displaying shape parameters of several simulations:
 ![Shape][Shape]
  
 
@@ -81,4 +81,4 @@ for k,v in FLAGS.__dict__.items():
 
 3. NFW_fit (`dmprofile/src/fit.py`) and centering function for the whole simulation and individual halos and subhalos (`dmprofile/src/move.py`). The latter file includes an additional function that is currently not operational.
 
-*This package is part of an internship at Swinburne University of Technology, Melbourne.*
+*This package is part of an internship at Swinburne University of Technology, Melbourne. Please contact me at bfontanasantosalves@swin.edu.au. *
