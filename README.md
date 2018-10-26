@@ -63,11 +63,12 @@ This class is currently able to plot:
 * Simple particle distributions
 
 Example of a plot produced with `script1.py`:
-[Shape]: https://github.com/b-fontana/DarkMatter/blob/master/Shape.png![Shape][Shape]
+[Shape]: https://github.com/b-fontana/DarkMatter/blob/master/Shape.png
+![Shape][Shape]
  
 
 * Other utilities:
-1. Parser that can be extended, stored in `dmprofile.src.parser`. To use it and print the parsed arguments:
+1. Parser that can be extended, stored in `dmprofile/src/parser`. To use it and print the parsed arguments:
 
 ```python
 FLAGS, _ = add_args(argparse.ArgumentParser())
@@ -76,7 +77,7 @@ for k,v in FLAGS.__dict__.items():
     print('{}: {}'.format(k,v))
 ```
 
-2. General utilities like memory consumption check, I/O operations, and others. Stored in `dmprofile/src/utilities.py`
+2. General utilities like memory consumption check, I/O operations, and others. Stored in `dmprofile/src/utilities.py`.
 
 3. NFW_fit (`dmprofile/src/fit.py`) and centering function for the whole simulation and individual halos and subhalos (`dmprofile/src/move.py`). The latter file includes an additional function that is currently not operational.
 
