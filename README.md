@@ -2,7 +2,25 @@
 
 **Current release:** v1.0.0
 
-This `Python` package provides intuitive methods that perform some of the most common steps needed to study dark matter simulations using the `pynbody` package. In order to install `pynbody` please follow [these instructions](https://pynbody.github.io/pynbody/installation.html). A data sample is provided in the `data/` folder, so that one can run the examples and scripts and understand the basic workflow.
+This `Python` package provides intuitive methods that perform some of the most common steps needed to study dark matter simulations using the `pynbody` package. A data sample is provided in the `data/` folder, so that one can run the examples and scripts and understand the basic workflow.
+
+#### Installing
+To use `dmprofile` you will need the `pynbody` package. Please follow [these instructions](https://pynbody.github.io/pynbody/installation.html). 
+To install `dmprofile` you have two options:
+
+* Clone the repository:
+
+```bash
+git clone https://github.com/b-fontana/DarkMatter.git
+cd DarkMatter/
+```
+and try the examples.
+
+* Pip install (gets the latest release, which does not necessarily correspond to the code on this repository):
+
+```bash
+pip install dmprofile
+```
 
 **Classes**
 
@@ -45,13 +63,21 @@ This class is currently able to plot:
 * Simple particle distributions
 
 Example of a plot produced with `script1.py`:
-[Shape]: https://github.com/b-fontana/DarkMatter/blob/master/Shape.png
-![Shape][Shape]
+[Shape]: https://github.com/b-fontana/DarkMatter/blob/master/Shape.png![Shape][Shape]
  
 
 * Other utilities:
-** a
-** b
-** c
+1. Parser that can be extended, stored in `dmprofile.src.parser`. To use it and print the parsed arguments:
+
+```python
+FLAGS, _ = add_args(argparse.ArgumentParser())
+print("Parsed arguments:")
+for k,v in FLAGS.__dict__.items():
+    print('{}: {}'.format(k,v))
+```
+
+2. General utilities like memory consumption check, I/O operations, and others. Stored in `dmprofile/src/utilities.py`
+
+3. NFW_fit (`dmprofile/src/fit.py`) and centering function for the whole simulation and individual halos and subhalos (`dmprofile/src/move.py`). The latter file includes an additional function that is currently not operational.
 
 *This package is part of an internship at Swinburne University of Technology, Melbourne.*
