@@ -8,7 +8,7 @@ import itertools, collections
 from scipy.optimize import curve_fit
 
 from pynbody.analysis.theoretical_profiles import NFWprofile
-from dmprofile.src.utilities import linear_function_generator, remove_low_occupancy_bins
+from dmprofile.src.utilities import linear_function_generator, remove_low_occupancy_bins, bootstrap
 from .fit import nfw_fit
 from .utilities import intersect, is_list_empty
 
@@ -188,7 +188,7 @@ class _Plot():
 
     def binned_plot(self, axis_idx, x, y, nbins, xerr, yerr, 
                     marker, color, label, shift, fit, xscale,
-                    min_bins=3):
+                    min_bins, xlim, ylim, confidence, n_resampling):
         """x
         idx: which of the objects to plot (ordered by the constructor)
         axis_idx: where to plot the plot. Example: (0,1)
@@ -200,6 +200,8 @@ class _Plot():
         """
         if type(nbins)!=int:
             raise TypeError('The number of bins has to be an integer value.')
+        if confidence >= 1. or confidence <= 0.:
+            raise ValueError('The confidence level must have a value between in the ]0;1[ interval.')
         indexes = self._set_axis_indexes(axis_idx)
         self._axis[indexes].legend().set_visible(False)
         
@@ -207,11 +209,14 @@ class _Plot():
         y = np.array(y)
         if xscale=='log':
             bin_edges = np.logspace(np.log10(np.amin(x)), np.log10(np.amax(x)), nbins+1)
+            _hh = np.histogram(x,bin_edges)
+            self._axis[indexes].set_xscale('log')
+            print("BIN_EDGES", _hh[0])
         else:
             _hh = np.histogram(x,nbins)
-            print("HHHHHHH", _hh[0])
-            bin_edges = remove_low_occupancy_bins(_hh, min_bins)
-            nbins = len(bin_edges)-1
+            print("BIN_EDGES", _hh[0])
+        bin_edges = remove_low_occupancy_bins(_hh, min_bins)
+        nbins = len(bin_edges)-1
 
         bin_edges_2 = np.roll(bin_edges,-1)[:-1]
         bin_edges = bin_edges[:-1]
@@ -222,7 +227,6 @@ class _Plot():
             for b in range(nbins):
                 if ix>=bin_edges[b] and ix<=bin_edges_2[b]:
                     y_binned_values[b].append(iy)
-
         y_mean = [sum(y_binned_values[i])/len(y_binned_values[i]) if len(y_binned_values[i])!=0 else 0. for i in range(nbins)]
 
         #fig, ax = plt.subplots(figsize=(10,6))
@@ -231,7 +235,15 @@ class _Plot():
 
         if xerr!=None:
             xerr = [list(bin_centre-shift-bin_edges), list(bin_centre-shift-bin_edges)]
-        yerr = [[0]*nbins, [0]*nbins]
+        if yerr!=None:
+            yerr_down, yerr_up = ([] for _ in range(2))
+            for b in range(nbins):
+                bs_vals = bootstrap(y_binned_values[b], n_resampling=n_resampling, quantity='mean')
+                bs_vals[int(len(bs_vals)*(1.-confidence)/2):]
+                bs_vals[:-1*(int(len(bs_vals)*(1.-confidence)/2))]
+                yerr_down.append(y_mean[b] - bs_vals[0])
+                yerr_up.append(bs_vals[-1] - y_mean[b])
+            yerr = [yerr_down, yerr_up]
 
         self._axis[indexes].errorbar(np.array(bin_centre), np.array(y_mean), 
                                      xerr=xerr, yerr=yerr, fmt='none', ecolor=color, capsize=3)
@@ -239,6 +251,11 @@ class _Plot():
                                     marker=marker, s=40, color=color, label=label)
         if label != '': 
             self._axis[indexes].legend()
+
+        if xlim!=[None,None]:
+            self._axis[indexes].set_xlim(xlim)
+        if ylim!=[None,None]:
+            self._axis[indexes].set_ylim(ylim)
 
         if fit:
             slope, intercept = curve_fit(lambda _x,_p0,_p1: _p0*_x+_p1, bin_centre, y_mean)[0]
@@ -458,12 +475,15 @@ class Shape(_Plot):
 
 
     def binned_plot(self, idx, axis_idx, nbins, x_var, y_var, extra_idx=0, xerr=None, yerr=None,
-                    marker='o', color='b', label='', shift=0., fit=False, xscale='linear'):
+                    marker='o', color='b', label='', shift=0., fit=False, xscale='linear',
+                    min_bins=3, xlim=[None,None], ylim=[None,None], confidence=0.95, n_resampling=100):
         _x, _y = self._define_vars(idx, x_var, y_var, extra_idx)
         super().binned_plot(axis_idx=axis_idx, 
                             x=_x, y=_y, 
                             nbins=nbins, xerr=xerr, yerr=yerr,
-                            marker=marker, color=color, label=label, shift=shift, fit=fit, xscale=xscale)
+                            marker=marker, color=color, label=label, shift=shift, fit=fit, xscale=xscale,
+                            min_bins=min_bins, xlim=xlim, ylim=ylim, 
+                            confidence=confidence, n_resampling=n_resampling)
 
 class Concentration(_Plot):
     """
@@ -522,14 +542,16 @@ class Concentration(_Plot):
                 self._axis[indexes].scatter(yp, xp, c=c, marker=m)
 
     def binned_plot(self, idx, axis_idx, nbins, extra_idx=0, xerr=None, yerr=None,
-                    marker='o', color='b', label='', shift=0., fit=False, xscale='linear'):
+                    marker='o', color='b', label='', shift=0., fit=False, xscale='linear',
+                    min_bins=3, xlim=[None,None], ylim=[None,None], confidence=0.95, n_resampling=100):
         _x = np.array(self._extra_var[extra_idx])
         _y = np.array(self._c[idx])
         super().binned_plot(axis_idx=axis_idx, 
                             x=_x, y=_y, 
                             nbins=nbins, xerr=xerr, yerr=yerr,
-                            marker=marker, color=color, label=label, shift=shift, fit=fit, xscale=xscale)
-
+                            marker=marker, color=color, label=label, shift=shift, fit=fit, xscale=xscale,
+                            min_bins=min_bins, xlim=xlim, ylim=ylim, 
+                            confidence=confidence, n_resampling=n_resampling)
 
 class Relaxation(_Plot):
     """

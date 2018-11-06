@@ -51,14 +51,14 @@ def remove_low_occupancy_bins(h, nbins_min):
     bin_edges = h[1]
     for i in reversed(range(len(bin_samples))):
         flag = False
-        if bin_samples[i]<3:
+        if bin_samples[i]<nbins_min:
             flag = True
             bin_edges = bin_edges[:-1]
         if flag==False:
             break
     for i in range(len(bin_samples)):
         flag = False
-        if bin_samples[i]<3:
+        if bin_samples[i]<nbins_min:
             flag = True
             bin_edges = bin_edges[1:]
         if flag==False:
@@ -171,3 +171,21 @@ def read_from_file(fname, splitter=',', mode='standard'):
                         else:
                             data[i].append(float(val))
         return [np.array(data[i]) for i in range(ncols)]
+
+def bootstrap(data, n_resampling=100, quantity='mean'):
+    """
+    Implements the full bootstrap for a 'data' array. 
+    Returns the resampling results in ascending 'quantity' order.
+    This can be used, for instance, for obtaining a confidence interval.
+    """
+    quantities = {'mean', 'median'}
+    if quantity not in quantities:
+        raise ValueError('Please choose a valid quantity to perform the bootstrapping.')
+    storage = []    
+    for i in range(n_resampling):
+        _r = np.random.choice(data, len(data), replace=True)
+        if quantity=='mean':
+            storage.append(np.mean(_r))
+        elif quantity=='median':
+            storage.append(np.median(_r))
+    return np.sort(storage)

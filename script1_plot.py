@@ -35,26 +35,24 @@ shape.set_axis((0,1), xlabel=r'$\log_{10}(M)$ [M$_{\odot}$]', ylabel='c/a',
 shape.set_axis((0,2), xlabel=r'$\log_{10}(M)$ [M$_{\odot}$]', ylabel='triaxiality',
                xscale='linear', yscale='linear')
 
+colors = ['blue', 'red', 'green', 'orange', 'grey', 'yellow', 'purple', 'black']
 for isim in range(len(st)):
-    fit=False
-    if isim==len(st)-1: fit=True
-    shape.binned_plot(isim, axis_idx=(0,0), nbins=5, x_var="mass", y_var="b/a", color='blue', 
-                      label='> '+str(min_size)+' '+st[isim]+' '+sim_size, 
-                      extra_idx=0, xscale='linear', xerr=0, ylim=[.55,.85],fit=fit)
+    shape.binned_plot(isim, axis_idx=(0,0), nbins=5, x_var="mass", y_var="b/a", color=colors[isim], 
+                      label='> '+str(min_size)+' '+st[isim]+' '+sim_size, min_bins=10,
+                      extra_idx=isim, xscale='linear', xerr=0, yerr=0, ylim=[0.,1.], fit=False,
+                      confidence=0.95, n_resampling=10000)
 
 for isim in range(len(st)):
-    fit=False
-    if isim==len(st)-1: fit=True
-    shape.binned_plot(isim, axis_idx=(0,1), nbins=5, x_var="mass", y_var="c/a", color='blue', 
-                      label='> '+str(min_size)+' '+st[0]+' '+sim_size, 
-                      extra_idx=0, xscale='linear', xerr=0, ylim=[.4,.7], fit=fit)
+    shape.binned_plot(isim, axis_idx=(0,1), nbins=5, x_var="mass", y_var="c/a", color=colors[isim], 
+                      label='> '+str(min_size)+' '+st[isim]+' '+sim_size,  min_bins=10, 
+                      extra_idx=isim, xscale='linear', xerr=0, yerr=0, ylim=[0.,1.], fit=False,
+                      confidence=0.95, n_resampling=10000)
 
 for isim in range(len(st)):
-    fit=False
-    if isim==len(st)-1: fit=True
-    shape.binned_plot(isim, axis_idx=(0,2), nbins=5, x_var="mass", y_var="triax", color='blue', 
-                      label='> '+str(min_size)+' '+st[0]+' '+sim_size, 
-                      extra_idx=0, xscale='linear', xerr=0, ylim=[.53,.9], fit=fit)
+    shape.binned_plot(isim, axis_idx=(0,2), nbins=5, x_var="mass", y_var="triax", color=colors[isim], 
+                      label='> '+str(min_size)+' '+st[isim]+' '+sim_size,  min_bins=10,
+                      extra_idx=isim, xscale='linear', xerr=0, yerr=0, ylim=[0.,1.], fit=False,
+                      confidence=0.95, n_resampling=10000)
 
 shape.savefig()
 
