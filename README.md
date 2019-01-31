@@ -88,7 +88,9 @@ h.get_subhalo(idx=idx, sub_idx=sub_idx)
 h.get_halos()
 h.get_subhalos()
 ```
-where the last two line retrieve all the available halos and subhalos, respectively.
+where the last two lines retrieve all the available halos and subhalos, respectively.
+
+Please consider contributing to this package with your own code. I will be glad to review any pull request.
 
 
 **Acknowledgements** 
