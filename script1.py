@@ -26,17 +26,19 @@ for k,v in FLAGS.__dict__.items():
 
 st = FLAGS.sim_types
 addition = '' 
-if FLAGS.sim_size=='128': additon='.hdf5'
-path_first = ['/fred/oz071/aduffy/Smaug/'+st[i]+'_L010N0'+FLAGS.sim_size+'/data' for i in range(len(st))]
-path1 = [os.path.join(path_first[i], 'subhalos_103/subhalo_103') for i in range(len(st))]
-path2 = [os.path.join(path_first[i], 'snapshot_103/snap_103'+addition) for i in range(len(st))]
+ss = FLAGS.sim_sizes[0] 
+if ss=='128': additon='.hdf5'
+path_first = ['/fred/oz071/aduffy/Smaug/'+st[i]+'_L010N0'+ss+'/data' for i in range(len(st))]
+redshift_dict = {5: '103', 6: '080', 7: '065', 8: '054', 9: '045'}
+rshift = redshift_dict[FLAGS.redshift]
+path1 = [os.path.join(path_first[i], 'subhalos_'+rshift+'/subhalo_'+rshift) for i in range(len(st))]
+path2 = [os.path.join(path_first[i], 'snapshot_'+rshift+'/snap_'+rshift+addition) for i in range(len(st))]
 
 h = [Halos(path1[i], min_size=FLAGS.sim_min_particle_number) for i in range(len(st))]
 N = [h[i].get_number_halos() for i in range(len(st))]
 
 for isim in range(len(st)):
     c, M200, M200_shape, res, rel, s = ([] for i in range(6))
-    #2,6,14,25,27,46,54,91,116,117,122]
     for i in range(N[isim]):
         print("SIM", st[isim], "  HALO:", i)
         with centering_com(h[isim].get_halo(i)):
@@ -53,6 +55,6 @@ for isim in range(len(st)):
                 M200_shape.append(np.log10(h[isim].get_mass200(i)))
                 s.append(s_tmp)
     wf('data/Concentration_'+st[isim]+'_'+str(FLAGS.sim_min_particle_number)+
-       '_'+FLAGS.sim_size+'.txt', c, M200, res, rel)
+       '_'+ss+'_redshift'+str(FLAGS.redshift)+'.txt', c, M200, res, rel)
     wf('data/Shape_'+st[isim]+'_'+str(FLAGS.sim_min_particle_number)+
-       '_'+FLAGS.sim_size+'.txt', s, M200_shape, mode='shape')
+       '_'+ss+'_redshift'+str(FLAGS.redshift)+'.txt', s, M200_shape, mode='shape')

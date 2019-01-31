@@ -61,10 +61,6 @@ class Halos():
             self._subhalos[_i].extend((_isub, self._halos[_i].sub[_isub]) for _isub in range(length))
         self._subhalos_bak = self._subhalos.copy()
 
-        print("LEN", len(self._halos))
-        print("LEN", len(self._subhalos))
-        print("LEN", len(self._subhalos_bak))
-
         ###################################################################################
         #most bound particle positions
         """

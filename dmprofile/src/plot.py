@@ -134,7 +134,7 @@ class _Plot():
             for i in range(_r):
                 for j in range(_c):
                     self.set_axis((i,j), xlabel, ylabel, xscale, yscale,
-                                  xmin, xmax, ymin, ymax)
+x                                  xmin, xmax, ymin, ymax)
         else:
             for i in range(self._N):
                 self.set_axis((i,0), xlabel, ylabel, xscale, yscale,
@@ -213,6 +213,7 @@ class _Plot():
             self._axis[indexes].set_xscale('log')
             print("BIN_EDGES", _hh[0])
         else:
+            print(np.max(x), np.min(x))
             _hh = np.histogram(x,nbins)
             print("BIN_EDGES", _hh[0])
         bin_edges = remove_low_occupancy_bins(_hh, min_bins)
