@@ -12,7 +12,6 @@ from dmprofile.src.utilities import linear_function_generator, remove_low_occupa
 from .fit import nfw_fit
 from .utilities import intersect, is_list_empty
 
-#decorator: applies the same function to all objects in _Plot._obj_list
 def do_all_objects(func):
     def wrapper(self, *args, **kwargs):
         kwargs['i_profile'] = 0
@@ -46,7 +45,8 @@ class _Plot():
         if nrows!=0 and ncols!=0:
             self._nrows, self._ncols = nrows, ncols
             self._fig, self._axis = plt.subplots(nrows=self._nrows, ncols=self._ncols,
-                                                 figsize=(self._width, self._height))
+                                                 figsize=(self._width, self._height),
+                                                 squeeze=False)
         else:
             _r = np.floor(np.sqrt(self._N))
             _c = _r
@@ -57,19 +57,11 @@ class _Plot():
                 _c += next(_c_iter)
             self._nrows, self._ncols = int(_r), int(_c)
             self._fig, self._axis = plt.subplots(nrows=self._nrows, ncols=self._ncols,
-                                                 figsize=(self._width, self._height))
+                                                 figsize=(self._width, self._height),
+                                                 squeeze=False)
 
-    def _set_axis_indexes(self, axis_idx):
-        """
-        Set the axis indexes into 1D or 2D, due to matplotlib axis indexing.
-        1D is needed when one plans to plot less than two pictures.
-        """
-        if self._nrows>=2 and self._ncols>=2:
-            return axis_idx[0], axis_idx[1]
-        elif self._nrows==1:
-            return axis_idx[1]
-        else: #ncols==1 & nrows>=2
-            return axis_idx[0]
+        
+        self._color_it = itertools.cycle(('blue', 'red', 'green', 'orange', 'grey', 'yellow', 'purple'))
 
     def set_title(self, title):
         self._fig.suptitle(title)
@@ -82,22 +74,21 @@ class _Plot():
         """
         axis_idx can be either a single value or a tuple, depending on the total number of profiles
         """
-        indexes = self._set_axis_indexes(axis_idx)
-
         if xmin!=None and xmax!=None:
-            self._axis[indexes].set_xlim([xmin,xmax])
+            self._axis[axis_idx].set_xlim([xmin,xmax])
         if ymin!=None and ymax!=None:
-            self._axis[indexes].set_ylim([ymin,ymax])
+            self._axis[axis_idx].set_ylim([ymin,ymax])
 
         if (xmin==None and xmax!=None) or (xmin!=None and xmax==None):
             raise ValueError('Please provide both xmin and xmax options.')
         if (ymin==None and ymax!=None) or (ymin!=None and ymax==None):
             raise ValueError('Please provide both ymin and ymax options.')
 
-        self._axis[indexes].set_xscale(xscale)
-        self._axis[indexes].set_yscale(yscale)
-        self._axis[indexes].set_xlabel(xlabel)
-        self._axis[indexes].set_ylabel(ylabel)
+        print(axis_idx)
+        self._axis[axis_idx].set_xscale(xscale)
+        self._axis[axis_idx].set_yscale(yscale)
+        self._axis[axis_idx].set_xlabel(xlabel)
+        self._axis[axis_idx].set_ylabel(ylabel)
 
     def _set_axis_3D(self, axis, xlabel='', xscale='linear', ylabel='', yscale='linear',
                      zlabel='', zscale='linear',
@@ -134,7 +125,7 @@ class _Plot():
             for i in range(_r):
                 for j in range(_c):
                     self.set_axis((i,j), xlabel, ylabel, xscale, yscale,
-x                                  xmin, xmax, ymin, ymax)
+                                  xmin, xmax, ymin, ymax)
         else:
             for i in range(self._N):
                 self.set_axis((i,0), xlabel, ylabel, xscale, yscale,
@@ -182,7 +173,7 @@ x                                  xmin, xmax, ymin, ymax)
                       label=label, color=color)
         _axis.azim = azim
         _axis.elev = elev
-        if label != '': self._axis[indexes].legend()
+        if label != '': self._axis[axis_idx].legend()
         self._set_axis_3D(axis=_axis, zlabel='', zscale='linear',
                          xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, zmin=zmin, zmax=zmax)
 
@@ -202,15 +193,14 @@ x                                  xmin, xmax, ymin, ymax)
             raise TypeError('The number of bins has to be an integer value.')
         if confidence >= 1. or confidence <= 0.:
             raise ValueError('The confidence level must have a value between in the ]0;1[ interval.')
-        indexes = self._set_axis_indexes(axis_idx)
-        self._axis[indexes].legend().set_visible(False)
+        self._axis[axis_idx].legend().set_visible(False)
         
         x = np.array(x)
         y = np.array(y)
         if xscale=='log':
             bin_edges = np.logspace(np.log10(np.amin(x)), np.log10(np.amax(x)), nbins+1)
             _hh = np.histogram(x,bin_edges)
-            self._axis[indexes].set_xscale('log')
+            self._axis[axis_idx].set_xscale('log')
             print("BIN_EDGES", _hh[0])
         else:
             print(np.max(x), np.min(x))
@@ -246,29 +236,37 @@ x                                  xmin, xmax, ymin, ymax)
                 yerr_up.append(bs_vals[-1] - y_mean[b])
             yerr = [yerr_down, yerr_up]
 
-        self._axis[indexes].errorbar(np.array(bin_centre), np.array(y_mean), 
+        self._axis[axis_idx].errorbar(np.array(bin_centre), np.array(y_mean), 
                                      xerr=xerr, yerr=yerr, fmt='none', ecolor=color, capsize=3)
-        self._axis[indexes].scatter(np.array(bin_centre), np.array(y_mean),
+        self._axis[axis_idx].scatter(np.array(bin_centre), np.array(y_mean),
                                     marker=marker, s=40, color=color, label=label)
+
         if label != '': 
-            self._axis[indexes].legend()
+            self._axis[axis_idx].legend()
 
         if xlim!=[None,None]:
-            self._axis[indexes].set_xlim(xlim)
+            self._axis[axis_idx].set_xlim(xlim)
         if ylim!=[None,None]:
-            self._axis[indexes].set_ylim(ylim)
+            self._axis[axis_idx].set_ylim(ylim)
 
         if fit:
             slope, intercept = curve_fit(lambda _x,_p0,_p1: _p0*_x+_p1, bin_centre, y_mean)[0]
             print("PARAMETERS:", slope, intercept)
             gen_obj = linear_function_generator(slope, intercept, bin_edges[0], bin_edges_2[-1])
             _x_fit, _y_fit = ([] for i in range(2))
-            for i in range(1000):
+        
+            for _ in range(1000):
                 _next = next(gen_obj)
                 _x_fit.append(_next[0])
                 _y_fit.append(_next[1])
-            self._axis[indexes].plot(np.array(_x_fit), np.array(_y_fit), color=color, linewidth=.6)
-            self._axis[indexes].annotate('Slope: ' + str(np.round_(slope,2)) + 
+            _so = sorted(zip(_x_fit,_y_fit))
+            _arr1, _arr2 = ([] for _ in range(2))
+            for _so_elem in _so:
+                _arr1.append(_so_elem[0])
+                _arr2.append(_so_elem[1])
+
+            self._axis[axis_idx].plot(_arr1, _arr2, color=color, linewidth=.6)
+            self._axis[axis_idx].annotate('Slope: ' + str(np.round_(slope,2)) + 
                                          '\nInterception: ' + str(np.round_(intercept,2)), 
                                          xy=(0.02,0.02), xycoords='axes fraction',
                                          fontname='sans-serif', fontstyle='oblique', 
@@ -281,18 +279,17 @@ x                                  xmin, xmax, ymin, ymax)
         'axis_idx' index of the axis where the line will be plotted
         'value': value at which will be plotted; it is related to the 'orientation' option ('v' or 'h')
         """
-        indexes = self._set_axis_indexes(axis_idx)
-        _xmin, _xmax = self._axis[indexes].get_xbound()
-        _ymin, _ymax = self._axis[indexes].get_ybound()
+        _xmin, _xmax = self._axis[axis_idx].get_xbound()
+        _ymin, _ymax = self._axis[axis_idx].get_ybound()
         if orientation=='v':
-            self._axis[indexes].plot([value,value],[_ymin,_ymax], 
+            self._axis[axis_idx].plot([value,value],[_ymin,_ymax], 
                                      linestyle=linestyle, color=color, label=label)
         elif orientation=='h':
-            self._axis[indexes].plot([_xmin,_xmax],[value,value],
+            self._axis[axis_idx].plot([_xmin,_xmax],[value,value],
                                      linestyle=linestyle, color=color, label=label)
         else:
             raise ValueError('The specified orientation is not supported.')
-        self._axis[indexes].legend()
+        self._axis[axis_idx].legend()
 
     def savefig(self, name=''):
         if self._name=='':
@@ -337,8 +334,7 @@ class Profile(_Plot):
             return _translate[x_var], _translate[y_var]
 
         _x, _y = _define_vars(x_var, y_var)
-        indexes = super()._set_axis_indexes(axis_idx)
-        self._axis[indexes].plot(_x, _y)
+        self._axis[axis_idx].plot(_x, _y)
 
     @do_all_objects
     def plot_all(self, x_var, y_var, *args, **kwargs):
@@ -353,10 +349,9 @@ class Profile(_Plot):
             _fit = nfw_fit(self._p[idx])
             _func = NFWprofile.profile_functional_static(np.array(self._p[idx]['rbins']), 
                                                          _fit[0], _fit[1])
-            indexes = super()._set_axis_indexes(axis_idx)
-            self._axis[indexes].plot(np.array(self._p[idx]['rbins']), 
+            self._axis[axis_idx].plot(np.array(self._p[idx]['rbins']), 
                                      _func, label='NFW fit')
-            self._axis[indexes].legend()
+            self._axis[axis_idx].legend()
 
     @do_all_objects
     def fit_and_plot_all(self, function='nfw', *args, **kwargs):
@@ -446,7 +441,7 @@ class Shape(_Plot):
             options: pos, b/a, c/a, align, rot, triax, m200, r200
         """
         handles = []
-        indexes = super()._set_axis_indexes(axis_idx)
+
 
         if not is_list_empty(resolved_bools):
             grey = (0.2,0.2,0.2)
@@ -463,7 +458,7 @@ class Shape(_Plot):
                                     linestyle='None',label='unrelaxed structure')[0])
             handles.append(plt.plot([],[], marker='v',ms=8,c='k',
                                     linestyle='None',label='relaxed structure')[0])
-            self._axis[indexes].legend(handles=handles)
+            self._axis[axis_idx].legend(handles=handles)
         else:
             relaxation_markers = ['v']*len(self._s[idx])
         
@@ -472,7 +467,7 @@ class Shape(_Plot):
         _x, _y = [[q[i] for q in _sorted_lists] for i in range(2)]
         
         for xp, yp, c, m in zip(_x, _y, resolution_colors, relaxation_markers):
-            self._axis[indexes].scatter(xp, yp, c=c, marker=m)
+            self._axis[axis_idx].scatter(xp, yp, c=c, marker=m)
 
 
     def binned_plot(self, idx, axis_idx, nbins, x_var, y_var, extra_idx=0, xerr=None, yerr=None,
@@ -515,42 +510,46 @@ class Concentration(_Plot):
             raise ValueError('The axis you selected for plotting the concentration is not valid.')
         if idx >= self._N:
             raise ValueError('You cannot plot something that does not exist :)')
-        indexes = super()._set_axis_indexes(axis_idx)
         
         if not is_list_empty(resolved_bools):
             grey = (0.2,0.2,0.2)
             lightgrey = (0.6,0.6,0.6)
-            resolution_colors = [lightgrey if resolved_bools[i]==False else grey for i in range(len(self._c[idx]))]
+            resolution_colors = [lightgrey if resolved_bools[idx][i]==False else grey for i in range(len(self._c[idx]))]
             handles.append(mpatches.Patch(color=lightgrey, label='unresolved structures'))
             handles.append(mpatches.Patch(color=grey, label='resolved structures'))
         else:
             resolution_colors = [(0.4,0.4,0.4)]*len(self._c[idx])
 
         if not is_list_empty(relaxed_bools):
-            relaxation_markers = ['o' if relaxed_bools[i]==False else 'v' for i in range(len(self._c[idx]))]  
+            relaxation_markers = ['o' if relaxed_bools[idx][i]==False else 'v' for i in range(len(self._c[idx]))]  
             handles.append(plt.plot([],[], marker='o',ms=8,c='k',
                                     linestyle='None',label='unrelaxed structure')[0])
             handles.append(plt.plot([],[], marker='v',ms=8,c='k',
                                     linestyle='None',label='relaxed structure')[0])
             
-            self._axis[indexes].legend(handles=handles)
+            self._axis[axis_idx].legend(handles=handles)
         else:
             relaxation_markers = ['v']*len(self._c[idx])
         for xp, yp, c, m in zip(self._c[idx], self._extra_var[extra_idx], resolution_colors, relaxation_markers):
             if concentration_axis=='x':
-                self._axis[indexes].scatter(xp, yp, c=c, marker=m)
+                self._axis[axis_idx].scatter(xp, yp, c=c, marker=m)
             else:
-                self._axis[indexes].scatter(yp, xp, c=c, marker=m)
+                self._axis[axis_idx].scatter(yp, xp, c=c, marker=m)
 
     def binned_plot(self, idx, axis_idx, nbins, extra_idx=0, xerr=None, yerr=None,
-                    marker='o', color='b', label='', shift=0., fit=False, xscale='linear',
+                    marker='o', color=None, label='', shift=0., fit=False, xscale='linear',
                     min_bins=3, xlim=[None,None], ylim=[None,None], confidence=0.95, n_resampling=100):
         _x = np.array(self._extra_var[extra_idx])
         _y = np.array(self._c[idx])
+        if color==None:
+            _color = next(self._color_it)
+            print(_color)
+        else:
+            _color = color
         super().binned_plot(axis_idx=axis_idx, 
-                            x=_x, y=_y, 
-                            nbins=nbins, xerr=xerr, yerr=yerr,
-                            marker=marker, color=color, label=label, shift=shift, fit=fit, xscale=xscale,
+                            x=_x, y=_y, nbins=nbins, 
+                            xerr=xerr, yerr=yerr, marker=marker, 
+                            color=_color, label=label, shift=shift, fit=fit, xscale=xscale,
                             min_bins=min_bins, xlim=xlim, ylim=ylim, 
                             confidence=confidence, n_resampling=n_resampling)
 
@@ -572,27 +571,25 @@ class Relaxation(_Plot):
         'axis_idx': axis index (int [self._N<=2] or tuple [self._N>2])
         'x' and 'y': data arrays
         """
-        indexes = super()._set_axis_indexes(axis_idx)
         if x==None and y==None:
-            self._axis[indexes].plot(self._radius[idx], self._relax[idx])
+            self._axis[axis_idx].plot(self._radius[idx], self._relax[idx])
         else:
-            self._axis[indexes].plot(x, y)
+            self._axis[axis_idx].plot(x, y)
 
     @do_all_objects
     def plot_all(self, x, y, *args, **kwargs):
         self.plot(kwargs['i_profile'], (kwargs['i'], kwargs['j']))
 
     def intersect_and_plot(self, idx, axis_idx, intersect_value=1.):
-        indexes = super()._set_axis_indexes(axis_idx)
         degree = 5
-        self._axis[indexes].plot(self._radius[idx], self._relax[idx], '.') 
+        self._axis[axis_idx].plot(self._radius[idx], self._relax[idx], '.') 
         _intersect_x = intersect(x=self._radius[idx], y=self._relax[idx], deg=degree)
         _polyfit = np.polyfit(self._radius[idx], self._relax[idx], deg=degree)
         _func = np.poly1d(_polyfit)
         _x_new = np.linspace(self._radius[idx][0], self._relax[idx][-1], 10000)
         _y_new = _func(_x_new)
-        self._axis[indexes].plot(_x_new, _y_new, markersize=1, label='polynomial fit') #draw pseudo-line
-        self._axis[indexes].plot([min(self._radius[idx]), max(self._radius[idx])], 
+        self._axis[axis_idx].plot(_x_new, _y_new, markersize=1, label='polynomial fit') #draw pseudo-line
+        self._axis[axis_idx].plot([min(self._radius[idx]), max(self._radius[idx])], 
                                  [intersect_value, intersect_value], 
                                  color='r', linestyle='--', 
                                  label=r't$_{relax}(R)$/t$_{circ}$(r$_{200}$) = '+str(intersect_value))
@@ -600,13 +597,13 @@ class Relaxation(_Plot):
         _half_bin_relax = (self._relax[idx][1]-self._relax[idx][0])/2
         _text_idx = len(self._relax[idx])-int(len(self._relax[idx])/4)
         if _intersect_x[1]==True: #if there was an intersection
-            self._axis[indexes].plot(_intersect_x[0], intersect_value, 'ko')
-            self._axis[indexes].annotate('Intersection at x='+str(np.round_(_intersect_x[0],3)), xy=(0.015,0.75), xycoords='axes fraction')
-        self._axis[indexes].set_xlim([self._radius[idx][0] -_half_bin_radius, 
+            self._axis[axis_idx].plot(_intersect_x[0], intersect_value, 'ko')
+            self._axis[axis_idx].annotate('Intersection at x='+str(np.round_(_intersect_x[0],3)), xy=(0.015,0.75), xycoords='axes fraction')
+        self._axis[axis_idx].set_xlim([self._radius[idx][0] -_half_bin_radius, 
                                       self._radius[idx][-1] + _half_bin_radius])
-        self._axis[indexes].set_ylim([self._relax[idx][0] + _half_bin_relax, 
+        self._axis[axis_idx].set_ylim([self._relax[idx][0] + _half_bin_relax, 
                                       self._relax[idx][-1] - _half_bin_relax])
-        self._axis[indexes].legend()
+        self._axis[axis_idx].legend()
 
     @do_all_objects
     def intersect_and_plot_all(self, function='nfw', *args, **kwargs):
