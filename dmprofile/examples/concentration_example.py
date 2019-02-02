@@ -17,6 +17,8 @@ import argparse
 import numpy as np
 from scipy.optimize import curve_fit
 
+#Run with: python dmprofile/examples/concentration_example.py --sym_types TYPE1 TYPE2 --sim_sizes 128
+
 FLAGS, _ = add_args(argparse.ArgumentParser())
 print("Parsed arguments:")
 for k,v in FLAGS.__dict__.items():
@@ -24,16 +26,17 @@ for k,v in FLAGS.__dict__.items():
 
 st = FLAGS.sim_types
 addition = '' 
-if FLAGS.sim_size=='128': additon='.hdf5'
-path_first = ['/fred/oz071/aduffy/Smaug/'+st[i]+'_L010N0'+FLAGS.sim_size+'/data' for i in range(len(st))]
+if FLAGS.sim_sizes==['128']: addition='.hdf5'
+path_first = ['/fred/oz071/aduffy/Smaug/'+st[i]+'_L010N0'+FLAGS.sim_sizes[0] +'/data' for i in range(len(st))]
 path1 = [os.path.join(path_first[i], 'subhalos_103/subhalo_103') for i in range(len(st))]
 path2 = [os.path.join(path_first[i], 'snapshot_103/snap_103'+addition) for i in range(len(st))]
 
 h = [Halos(path1[i], min_size=FLAGS.sim_min_particle_number) for i in range(len(st))]
 N = [h[i].get_number_halos() for i in range(len(st))]
 
+c, M200, res, rel = ([[] for _ in range(len(st))] for i in range(4))
+
 for isim in range(len(st)):
-    c, M200, res, rel = ([] for i in range(4))
     for i in range(N[isim]):
         with centering_com(h[isim].get_halo(i)):
             print(h[isim].get_halo(i))
@@ -42,19 +45,18 @@ for isim in range(len(st)):
             relax_tmp = h[isim].concentration_200(idx=i, sub_idx=0)
             s_tmp = h[isim].get_shape(i, 0)
             if s_tmp!=-1 and isres!=-1 and relax_tmp!=-1 and isrel!=-1:
-                M200.append(h[isim].get_mass200(i))
-                res.append(isres)     
-                rel.append(isrel)
-                c.append(relax_tmp)
-    wf('file.txt', c, M200, res, rel)
+                M200[isim].append(h[isim].get_mass200(i))
+                res[isim].append(isres)     
+                rel[isim].append(isrel)
+                c[isim].append(relax_tmp)
+    wf('file'+str(isim)+'.txt', c[isim], M200[isim], res, rel)
 
-"""
-c_obj = plot.Concentration([c[i] for i in range len(st)], extra_var=M200, name='figs/Concentration.png')
+c_obj = plot.Concentration(c, extra_var=M200, name='figs/Concentration.png')
 c_obj.set_all_properties(model='concentration_mass')
 c_obj.scatter_plot(0, (0,0), resolved_bools=res, relaxed_bools=rel)
 c_obj.scatter_plot(1, (1,0)) 
 c_obj.savefig()
-"""
+
 
 if __name__ == 'main':
     unittest.main()
