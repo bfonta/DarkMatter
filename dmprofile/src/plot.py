@@ -147,11 +147,12 @@ class _Plot():
                          'mass_enc_profile', 
                          'mass_profile',
                          'concentration_mass',
+                         'concentration_mass_log',
                          'relaxation']
         if model not in model_options:
             raise ValueError('The specified model is not currently predefined.')
         if model!='None':
-            self.set_axis_all('R [kpc]', r'$\rho$ [M$_{\odot}$ kpc$^{-3}$]', xscale, yscale) if model=='density_profile' else self.set_axis_all('R [kpc]', r'$\rho_{enc}$ [M$_{\odot}$ kpc$^{-3}$]', xscale, yscale) if model=='density_enc_profile' else self.set_axis_all('R [kpc]', r'M$_{enc}$ [M$_{\odot}$]', xscale, yscale) if model=='mass_enc_profile' else self.set_axis_all(r'M$_{200}$ [M$_{\odot}$]', r'c$_{200}$', xscale, yscale) if model=='concentration_mass' else self.set_axis_all('R [kpc]', r't$_{relax}(R)$/t$_{circ}$(r$_{200}$)', xscale, yscale) if model=='relaxation' else self.set_axis_all('R [kpc]', r'M [M$_{\odot}$]', xscale, yscale)
+            self.set_axis_all('R [kpc]', r'$\rho$ [M$_{\odot}$ kpc$^{-3}$]', xscale, yscale) if model=='density_profile' else self.set_axis_all('R [kpc]', r'$\rho_{enc}$ [M$_{\odot}$ kpc$^{-3}$]', xscale, yscale) if model=='density_enc_profile' else self.set_axis_all('R [kpc]', r'M$_{enc}$ [M$_{\odot}$]', xscale, yscale) if model=='mass_enc_profile' else self.set_axis_all(r'M$_{200}$ [M$_{\odot}$]', r'c$_{200}$', xscale, yscale) if model=='concentration_mass' else self.set_axis_all(r'$\log_{10}$(M$_{200})$ [M$_{\odot}$]', r'c$_{200}$', xscale, yscale) if model=='concentration_mass_log' else self.set_axis_all('R [kpc]', r't$_{relax}(R)$/t$_{circ}$(r$_{200}$)', xscale, yscale) if model=='relaxation' else self.set_axis_all('R [kpc]', r'M [M$_{\odot}$]', xscale, yscale)
         else:
             for i in range(self._nrows):
                 if self._N>2:
@@ -177,7 +178,7 @@ class _Plot():
         self._set_axis_3D(axis=_axis, zlabel='', zscale='linear',
                          xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax, zmin=zmin, zmax=zmax)
 
-    def binned_plot(self, axis_idx, x, y, nbins, xerr, yerr, 
+    def binned_plot(self, axis_idx, x, y, nbins, xerr, yerr, rg,
                     marker, color, label, shift, fit, xscale,
                     min_bins, xlim, ylim, confidence, n_resampling):
         """x
@@ -203,8 +204,9 @@ class _Plot():
             self._axis[axis_idx].set_xscale('log')
             print("BIN_EDGES", _hh[0])
         else:
-            print(np.max(x), np.min(x))
-            _hh = np.histogram(x,nbins)
+            if rg == None:
+                rg = (np.min(x), np.max(x))
+            _hh = np.histogram(x,nbins,range=rg)
             print("BIN_EDGES", _hh[0])
         bin_edges = remove_low_occupancy_bins(_hh, min_bins)
         nbins = len(bin_edges)-1
@@ -224,9 +226,9 @@ class _Plot():
         bin_centre = bin_edges + (bin_edges_2-bin_edges)/2
         bin_centre = bin_centre + shift
 
-        if xerr!=None:
+        if xerr == []:
             xerr = [list(bin_centre-shift-bin_edges), list(bin_centre-shift-bin_edges)]
-        if yerr!=None:
+        if yerr == []:
             yerr_down, yerr_up = ([] for _ in range(2))
             for b in range(nbins):
                 bs_vals = bootstrap(y_binned_values[b], n_resampling=n_resampling, quantity='mean')
@@ -470,13 +472,13 @@ class Shape(_Plot):
             self._axis[axis_idx].scatter(xp, yp, c=c, marker=m)
 
 
-    def binned_plot(self, idx, axis_idx, nbins, x_var, y_var, extra_idx=0, xerr=None, yerr=None,
+    def binned_plot(self, idx, axis_idx, nbins, x_var, y_var, extra_idx=0, rg=None, xerr=[], yerr=[],
                     marker='o', color='b', label='', shift=0., fit=False, xscale='linear',
-                    min_bins=3, xlim=[None,None], ylim=[None,None], confidence=0.95, n_resampling=100):
+                    min_bins=3, xlim=[None,None], ylim=[None,None], confidence=0.95, n_resampling=1000):
         _x, _y = self._define_vars(idx, x_var, y_var, extra_idx)
         super().binned_plot(axis_idx=axis_idx, 
                             x=_x, y=_y, 
-                            nbins=nbins, xerr=xerr, yerr=yerr,
+                            nbins=nbins, rg=rg, xerr=[], yerr=[],
                             marker=marker, color=color, label=label, shift=shift, fit=fit, xscale=xscale,
                             min_bins=min_bins, xlim=xlim, ylim=ylim, 
                             confidence=confidence, n_resampling=n_resampling)
@@ -536,7 +538,7 @@ class Concentration(_Plot):
             else:
                 self._axis[axis_idx].scatter(yp, xp, c=c, marker=m)
 
-    def binned_plot(self, idx, axis_idx, nbins, extra_idx=0, xerr=None, yerr=None,
+    def binned_plot(self, idx, axis_idx, nbins, extra_idx=0, rg=None, xerr=[], yerr=[],
                     marker='o', color=None, label='', shift=0., fit=False, xscale='linear',
                     min_bins=3, xlim=[None,None], ylim=[None,None], confidence=0.95, n_resampling=100):
         _x = np.array(self._extra_var[extra_idx])
@@ -548,7 +550,7 @@ class Concentration(_Plot):
             _color = color
         super().binned_plot(axis_idx=axis_idx, 
                             x=_x, y=_y, nbins=nbins, 
-                            xerr=xerr, yerr=yerr, marker=marker, 
+                            rg=rg, xerr=xerr, yerr=yerr, marker=marker, 
                             color=_color, label=label, shift=shift, fit=fit, xscale=xscale,
                             min_bins=min_bins, xlim=xlim, ylim=ylim, 
                             confidence=confidence, n_resampling=n_resampling)
