@@ -2,7 +2,7 @@ from context import src
 from src.halos import Halos
 from src import plot
 from src.move import centering_com
-from src.utilities import intersect, write_to_file as wf
+from src.utilities import intersect, write_to_file as wf, binning_using_binwidth
 from src.parser import add_args
 
 import matplotlib
@@ -36,15 +36,14 @@ N = [h[i].get_number_halos() for i in range(len(st))]
 
 prof = []
 
-left, right = 2.5, 30.
-bin_number = 18
+bins = binning_using_binwidth(-1.25, 0, 0.078)
 halo_idx = 0
 with centering_com(h[0].get_halo(halo_idx)):
-    prof0 = h[0].get_profile(halo_idx, component='dm', bins=(left,right,bin_number), 
-                                bin_type='log', normalize_x=False)
+    prof0 = h[0].get_profile(halo_idx, component='dm', bins=bins,
+                                bin_type='custom', normalize_x=True)
 with centering_com(h[1].get_halo(halo_idx)):
-    prof1 = h[1].get_profile(halo_idx, component='dm', bins=(left,right,bin_number), 
-                                bin_type='log', normalize_x=False)
+    prof1 = h[1].get_profile(halo_idx, component='dm', bins=bins,
+                                bin_type='custom', normalize_x=True)
 
 #prof0 will have index=0, prof1 will have index=1 and so on
 p = plot.Profile([prof0, prof1], name='figs/DensityProfile.png')
@@ -54,7 +53,7 @@ p.set_all_properties(model='density_profile')
 p.plot_all(x_var='radius', y_var='density')
 
 #fit all the profiles (NFW is currently the only option but the code can be easily expanded)
-p.fit_and_plot_all(function='nfw')
+#p.fit_and_plot_all(function='nfw')
 
 p.savefig()
 

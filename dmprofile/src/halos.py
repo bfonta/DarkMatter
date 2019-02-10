@@ -113,9 +113,10 @@ class Halos():
                 return self._halos_bak[idx].properties['Halo_R_Crit200'].in_units('kpc') 
             except KeyError:
                 return self._vars["r200_"+str(idx)]
-
+    """
     def _get_mbp(self, idx):
         return self._mbp[idx]
+    """
 
     def _check_backup(self, idx, sub_idx=-1):
         if sub_idx < 0:
@@ -178,7 +179,7 @@ class Halos():
             1. Sphere_radius, where radius is a number relative to r200. Example: Sphere_1
             2. BandPass_prop_min_max. Example: BandPass_y_1 kpc_2 kpc. It must have units.
         option: None, 'half1', 'half2' or 'all' to select halos faster.
-                When option!=None 'halos_idxs' are ignored.
+                When option!=None 'halos_idxs' is ignored.
                 By default only the largest halo is filtered.
         sim: Whether to filter the full simulation or just the specified halo.
              This is relevant because the full simulation also includes particles
@@ -341,7 +342,6 @@ class Halos():
             #In pynbody, r200 is not defined for subhalos
             #as such, the main halo is always used to retrieve the r200
             _r200 = self._get_r200(idx)
-            print("r200:", _r200)
             _profile = self.get_profile(idx, sub_idx, component='dm', 
                                         bins=bins, bin_type=bin_type, 
                                         normalize_x=normalize_x)
@@ -350,8 +350,8 @@ class Halos():
                 warnings.warn('The density array is filled with zeros. The concentration cannot be correctly evaluated.')
                 return -1
             _rs = nfw_fit(_profile)[1]
-            print(_r200, _rs)
-        return _r200/_rs
+            print('R200: {}, Rs: {}'.format(_r200, _rs))
+        return _r200/_rs/pn.units.kpc
       
     def concentrations_200(self, sub='False', sub_idx=0, n=None):
         """
@@ -362,14 +362,14 @@ class Halos():
         return [self.concentration_200(i, sub, sub_idx) for i in range(n)]
 
     def get_profile(self, idx, sub_idx=-1, component='dm', 
-                    bins=(2.5,30,18), bin_type='log', normalize_x=False):
+                    bin_type='log', bins=None, normalize_x=False):
         """
         Obtain the profile of a single halo.
         Arguments:
         'idx': which halo to get the profile from
         'sub_idx': which subhalo to get the profile from
         'component': 'dm', 'stars', 'gas' or 'all'
-        'bins': tuple with (start,stop,nbins)
+        'bins': custom bin edges
         'bin_type': either 'linear' or 'log'
         'normalize_x': 'None' for no normalization and 'r200' for normalization
         'centering': whether to centre the halo before obtaining the profile or not
@@ -379,12 +379,10 @@ class Halos():
             components = {'dm':_h.dm, 'stars':_h.s, 'gas':_h.g, 'all':_h}
             if component not in components:
                 raise ValueError('The specified component does not exist.')
-            if type(bins) is not tuple or len(bins) != 3:
-                raise TypeError('Please insert bins with the following pattern: (start, stop, nbins).')
         
             if normalize_x:
                 r200 = self._get_r200(idx)
-                calc_x = lambda x: x['r']/r200
+                calc_x = lambda x: np.log10(x['r']/r200)
             else:
                 calc_x = lambda x: x['r']
 
@@ -392,16 +390,17 @@ class Halos():
                 return pn.analysis.profile.Profile(components[component],
                                                    calc_x = calc_x,
                                                    ndim=3, 
-                                                   bins=np.linspace(bins[0],
-                                                                    bins[1],
-                                                                    bins[2]))
+                                                   bins=np.linspace(2.5,30.,18))
             elif bin_type=='log':
                 return pn.analysis.profile.Profile(components[component], 
                                                    calc_x = calc_x,
                                                    ndim=3, 
-                                                   bins=np.logspace(np.log10(bins[0]),
-                                                                    np.log10(bins[1]),
-                                                                    bins[2]))
+                                                   bins=np.logspace(np.log10(2.5),np.log10(30.),18))
+            elif bin_type=='custom':
+                return pn.analysis.profile.Profile(components[component], 
+                                                   calc_x = calc_x,
+                                                   ndim=3, 
+                                                   bins=bins)
             else:
                 raise ValueError('The specified bin type does not exist.')
 
