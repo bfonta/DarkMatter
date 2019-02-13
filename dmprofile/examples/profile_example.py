@@ -36,13 +36,14 @@ N = [h[i].get_number_halos() for i in range(len(st))]
 
 prof = []
 
-bins = binning_using_binwidth(-1.25, 0, 0.078)
+bins1 = binning_using_binwidth(-1.25, 0, 0.078)
+bins2 = binning_using_binwidth(-1.25, 0.2, 0.078)
 halo_idx = 0
 with centering_com(h[0].get_halo(halo_idx)):
-    prof0 = h[0].get_profile(halo_idx, component='dm', bins=bins,
+    prof0 = h[0].get_profile(halo_idx, component='dm', bins=bins1,
                                 bin_type='custom', normalize_x=True)
 with centering_com(h[1].get_halo(halo_idx)):
-    prof1 = h[1].get_profile(halo_idx, component='dm', bins=bins,
+    prof1 = h[1].get_profile(halo_idx, component='dm', bins=bins2,
                                 bin_type='custom', normalize_x=True)
 
 #prof0 will have index=0, prof1 will have index=1 and so on
