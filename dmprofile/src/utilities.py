@@ -189,3 +189,11 @@ def bootstrap(data, n_resampling=100, quantity='mean'):
         elif quantity=='median':
             storage.append(np.median(_r))
     return np.sort(storage)
+
+def binning_using_binwidth(start, stop, bin_width):
+    arr = np.empty([0])
+    val = start
+    while val < stop:
+        arr = np.append(arr, val)
+        val += bin_width
+    return arr
