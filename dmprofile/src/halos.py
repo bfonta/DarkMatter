@@ -4,23 +4,25 @@ import copy
 import pynbody as pn
 import pynbody.units as u
 from pynbody.analysis.halo import center_of_mass as com
+from pynbody.analysis.theoretical_profiles import NFWprofile
 
 from src.fit import nfw_fit
 from src.utilities import intersect, memory_usage_resource as mem
+from src.utilities import coef_determination, binning_using_binwidth
 from src.move import centering_com
+from src import plot
 
 class Halos():
     """
-    Halos management
+    Management of pynbody halos.
     """
     __slots__ = ['_sim', '_N', '_halos', '_halos_bak', 
                  '_subhalos', '_subhalos_bak', '_vars', '_mbp']
 
     def __init__(self, halos_filename, sim_filename='', N=None, min_size=300):
         """
-        Tasks:
-        1. Loads the halos and full simulation. Make sure they correspond to the same particles.
-        2. Creates backup copies of all halos and subhalos
+        Loads the halos and full simulation. Make sure they correspond to the same particles.
+        Also creates backup copies of all halos and subhalos
 
         Note: The full simulaton includes the particles that were not assigned to any halo
               by the Friends of Friends algorithm.
@@ -42,7 +44,8 @@ class Halos():
 
         if N!=None:
             if N>len(_s_halos): 
-                warnings.warn("The specified halo number is larger than the number of halos in the simulation box.")
+                warnings.warn('The specified halo number is larger than the number of halos'
+                              'in the simulation box.')
         _halos_tot = _s_halos.halos()
         self._halos = [item for item in _halos_tot if len(item)>=min_size]
         
@@ -126,10 +129,9 @@ class Halos():
 
     def get_shape(self, idx, sub_idx=-1):
         """
-        Returns a pynbody shape. 
-        Returns -1 (error) if: 1) The halo has no subhalos
-                               2) Either b/a or c/a are 0 or 1 
-                                  (since this is unphysical and leads to undefined triaxiality)
+        Returns:
+        -> -1 if i) the halo has no subhalos ii) either b/a or c/a are 0 or 1
+        -> else return a pynbody shape object
         """
         if sub_idx<0:
             with centering_com(self._halos[idx]):
@@ -139,7 +141,8 @@ class Halos():
             if len(self._subhalos[idx])==0:
                 warnings.warn('This halo has no subhalos!')
                 return -1
-            with centering_com(self._subhalos[idx][sub_idx][1]):
+            with centering_com(self._subhalos[idx][sub_idx][1], 
+                               r=self._halos[idx].properties['Halo_R_Crit200'].in_units('kpc')):
                 shape = pn.analysis.halo.halo_shape(self._subhalos[idx][sub_idx][1], 
                                                    N=1, bins='lin')
         if shape[1]>1e-5 and shape[2]>1e-5 and shape[1]<.99999 and shape[2]<.99999:
@@ -173,24 +176,25 @@ class Halos():
         """
         Arguments:
 
-        halo_idxs: indexes of the halos to filter; if more than one, it must be a set
-        sub_idx: index of the subhalo. If set to a negative number, the whole halo is filtered.
-        filters:
-            1. Sphere_radius, where radius is a number relative to r200. Example: Sphere_1
-            2. BandPass_prop_min_max. Example: BandPass_y_1 kpc_2 kpc. It must have units.
-        option: None, 'half1', 'half2' or 'all' to select halos faster.
-                When option!=None 'halos_idxs' is ignored.
-                By default only the largest halo is filtered.
-        sim: Whether to filter the full simulation or just the specified halo.
-             This is relevant because the full simulation also includes particles
-             that were not bounded to any halo or subhalo.
+        -> halo_idxs: indexes of the halos to filter; if more than one, it must be a set
+        -> sub_idx: index of the subhalo. If set to a negative number, the whole halo is filtered.
+        -> filters:
+           1. Sphere_radius, where radius is a number relative to r200. Example: Sphere_1
+           2. BandPass_prop_min_max. Example: BandPass_y_1 kpc_2 kpc. It must have units.
+        -> option: None, 'half1', 'half2' or 'all' to select halos faster.
+           When option!=None 'halos_idxs' is ignored.
+           By default only the largest halo is filtered.
+        -> sim: Whether to filter the full simulation or just the specified halo.
+           This is relevant because the full simulation also includes particles
+           that were not bounded to any halo or subhalo.
 
-        Note: The inputs for each filter are separated using the underscore '_' charachter.
+        Note: The inputs for each filter are separated using the underscore '_' character.
               More filters can be added to 'filter_dict' in the same fashion with variable 
               number of arguments.
         """
         if self._sim==None and sim:
-            ValueError('Using the simulation in the filtering requires defining the simulation in the class constructor.')
+            ValueError('Using the simulation in the filtering requires defining the simulation'
+                       'in the class constructor.')
         if type(halo_idxs) != int and type(halo_idxs) != set:
             raise TypeError('The introduced indexes have the wrong format')
         if type(halo_idxs) is int:
@@ -259,9 +263,10 @@ class Halos():
                 warnings.warn('This halo has no subhalos!')
                 return -1
             _h = self._subhalos[halo_idx][sub_idx][1]
-        with centering_com(_h): #centering the main halo
-            print("COM after centering in is_relaxed():", com(_h))
-            _com = pn.analysis.halo.center_of_mass(_h)
+        with centering_com(_h, r=self._halos[halo_idx].properties['Halo_R_Crit200'].in_units('kpc')): 
+            #_com = pn.analysis.halo.center_of_mass(_h)
+            _com = pn.analysis.halo.shrink_sphere_center(_h, 
+                                    r=self._halos[halo_idx].properties['Halo_R_Crit200'].in_units('kpc'))
             _r200 = self._get_r200(halo_idx)
             _dist = np.sqrt( np.power(_h[0]['pos']-_com,2).sum() )
             #The minimum potential point is obtained with:
@@ -279,21 +284,22 @@ class Halos():
                 warnings.warn('This halo has no subhalos!')
                 return -1
             _h = self._subhalos[halo_idx][sub_idx][1]
-        with centering_com(_h): #centering the main halo
-            print("Halo is_resolved():", _h)
+
+        _rrr = self._halos[halo_idx].properties['Halo_R_Crit200'].in_units('kpc')):
+        with centering_com(_h, r=_rrr):
             _r200 = self._get_r200(halo_idx)
-            print("R200 is resolved():", _r200)
-            _prof = self.get_profile(halo_idx, sub_idx, component='dm', bins=(2.5,30.,18),
-                                     bin_type='log', normalize_x=False)
-            _relax = self.relaxation(halo_idx, sub_idx, _prof)
+            bins = _r200*10**binning_using_binwidth(-1.25, 0., 0.078)
+            _prof = self.get_profile(halo_idx, sub_idx, component='dm', bins=bins,
+                                     bin_type='custom', normalize_x=False)
+            _relax = self.relaxation(halo_idx, sub_idx, _prof, bins)
             if len(_relax[0])==1 and len(_relax[1])==1:
                 return -1
             _inter = intersect(_relax[1], _relax[0], intersect_value=intersect_value)
             if _inter[1]==True:            
                 return _inter[0] < _r200*np.power(10,-1.25)
             else:
-                print("Halo number:", halo_idx)
-                warning.warn('No intersection was found for this halo. The resolution criteria cannot thus be checked. The halo is assumed to be relaxed.')
+                warning.warn('No intersection was found for this halo. The resolution criteria'
+                             'cannot thus be checked. The halo is assumed to be relaxed.')
                 return True 
 
     def get_halo(self, halo_idx):
@@ -323,35 +329,54 @@ class Halos():
         return self._halos
 
     def concentration_200(self, idx, sub_idx=-1, 
-                          bins=(2.5,30.,18), bin_type='log', normalize_x=False):
+                          bins=None, bin_type='custom', normalize_x=False):
         """
-        Calculates the concentration at r200 
+        Calculates the concentration at r200
+        Returs -1 when fails.
         """
         if sub_idx<0:
             _current_halo = self._halos[idx] 
         else:
-            print('Concentration index:', idx)
             if len(self._subhalos[idx])==0:
                 warnings.warn('This halo has no subhalos!')
                 return -1
             _current_halo = self._subhalos[idx][sub_idx][1]
 
-        with centering_com(_current_halo):
-            print("Halo concentration_200():", _current_halo)
-            print("COM after centering in concentration_200():", com(_current_halo))
-            #In pynbody, r200 is not defined for subhalos
-            #as such, the main halo is always used to retrieve the r200
+
+        #In pynbody, r200 is not defined for subhalos as such, the main halo is always 
+        #used to retrieve the r200
+        _rrr = self._halos[idx].properties['Halo_R_Crit200'].in_units('kpc')):
+        with centering_com(_current_halo, r=_rrr):
             _r200 = self._get_r200(idx)
+
+            if bins==None:
+                bins = _r200*10**binning_using_binwidth(-1.25, 0., 0.078)
             _profile = self.get_profile(idx, sub_idx, component='dm', 
                                         bins=bins, bin_type=bin_type, 
                                         normalize_x=normalize_x)
-            print(_profile['density'])
+            print("LAST BIN: ", bins[-1])
             if not np.any(_profile['density']):
-                warnings.warn('The density array is filled with zeros. The concentration cannot be correctly evaluated.')
+                warnings.warn('The density array is filled with zeros.'
+                              'The concentration cannot be correctly evaluated.')
                 return -1
-            _rs = nfw_fit(_profile)[1]
+
+            p = plot.Profile([v for v in [_profile]], w=15, h=11)
+            p.set_all_properties(model='density_profile')
+            p.plot_all(x_var='radius', y_var='density', x_scale='log')
+            p.fit_all(function='nfw')
+
+            #fit and goodness-of-fit selection
+            _fit = nfw_fit(_profile)
+            _func = NFWprofile.profile_functional_static(np.array(_profile['rbins']), 
+                                                         _fit[0], _fit[1])
+            if coef_determination(_profile['density'], _func) <= 0.95:
+                return -1
+            
+            _rs = _fit[1]
             print('R200: {}, Rs: {}'.format(_r200, _rs))
-        return _r200/_rs/pn.units.kpc
+        
+            
+        return _r200/_rs
       
     def concentrations_200(self, sub='False', sub_idx=0, n=None):
         """
@@ -365,24 +390,26 @@ class Halos():
                     bin_type='log', bins=None, normalize_x=False):
         """
         Obtain the profile of a single halo.
+        
         Arguments:
-        'idx': which halo to get the profile from
-        'sub_idx': which subhalo to get the profile from
-        'component': 'dm', 'stars', 'gas' or 'all'
-        'bins': custom bin edges
-        'bin_type': either 'linear' or 'log'
-        'normalize_x': 'None' for no normalization and 'r200' for normalization
-        'centering': whether to centre the halo before obtaining the profile or not
+        -> idx: which halo to get the profile from
+        -> sub_idx: which subhalo to get the profile from
+        -> component: 'dm', 'stars', 'gas' or 'all'
+        -> bins: custom bin edges
+        -> bin_type: either 'linear' or 'log'
+        -> normalize_x: 'None' for no normalization and 'r200' for normalization
+        -> centering: whether to centre the halo before obtaining the profile or not
         """
         _h = self._halos[idx] if sub_idx<0 else self._subhalos[idx][sub_idx][1]
-        with centering_com(_h):
+        _rrr = self._halos[idx].properties['Halo_R_Crit200'].in_units('kpc')):
+        with centering_com(_h, r=_rrr):
             components = {'dm':_h.dm, 'stars':_h.s, 'gas':_h.g, 'all':_h}
             if component not in components:
                 raise ValueError('The specified component does not exist.')
         
             if normalize_x:
                 r200 = self._get_r200(idx)
-                calc_x = lambda x: np.log10(x['r']/r200)
+                calc_x = lambda x: x['r']/r200
             else:
                 calc_x = lambda x: x['r']
 
@@ -405,36 +432,38 @@ class Halos():
                 raise ValueError('The specified bin type does not exist.')
 
 
-    def relaxation(self, idx, sub_idx=-1, profile=None, component='dm', bins=(2.5,30,18), bin_type='log'):
+    def relaxation(self, idx, sub_idx=-1, profile=None, 
+                   bins=None, bin_type='custom', component='dm'):
         """
         Creates a t_relax(r) / t_circ(r200) array for the provided halo.
         If you do not provide a profile, the method creates one for you. 
         The profile is needed to obtain the density as a function of r.
         
         Returns:
-        The above array and the corresponding binned radius values
+        -> The above array and the corresponding binned radius values.
         """
         _h = self._halos[idx]
         _rho_crit_z = pn.array.SimArray(pn.analysis.cosmology.rho_crit(_h, unit="Msol kpc**-3"), 
                                         "Msol kpc**-3")
         if sub_idx >= 0:
             _h = self._subhalos[idx][sub_idx][1]
-        with centering_com(_h):
+        with centering_com(_h, r=self._halos[idx].properties['Halo_R_Crit200'].in_units('kpc')):
             if profile==None:
+                if bins==None:
+                    bins = self._get_r200(idx)*10**binning_using_binwidth(-1.25, 0., 0.078)
                 _prof = self.get_profile(idx, sub_idx, component=component, bins=bins, 
                                          bin_type=bin_type, normalize_x=False)
                 _density = _prof['density']
                 _rbins = _prof['rbins']
-                print(_density)
-                print(_rbins)
             else:
                 _density = profile['density']
                 _rbins= profile['rbins']
 
+            _density = _density.in_units('Msol kpc^-3')
+            _rbins = _rbins.in_units('kpc')
             _nparts = pn.array.SimArray([len(_h[_h['r']<_rbins[i]]) for i in range(len(_rbins))],'')
 
         if 0. in _density:
-            print("Halo number", idx, "has some zero in the density.")
             zero_idxs = [i for i,item in enumerate(_density) if item==0]
 
             if zero_idxs[0]==len(_density)-1:
@@ -442,8 +471,8 @@ class Halos():
                 _rbins[_density>0]
             else:
                 if _density[zero_idxs[0]+1]>0:
-                    print(_density)
-                    warnings.warn('One of the density values not in the far end of the distribution is zero. The relaxation cannot thus be calculated.')
+                    warnings.warn('One of the density values not in the far end of the'
+                                  'distribution is zero. The relaxation cannot thus be calculated.')
                     return np.zeros(1), np.zeros(1)
                 else: 
                     _density[_density>0]

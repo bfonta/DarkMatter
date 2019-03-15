@@ -41,7 +41,7 @@ for isim in range(len(st)):
     c, M200, M200_shape, res, rel, s = ([] for i in range(6))
     for i in range(N[isim]):
         print("SIM", st[isim], "  HALO:", i)
-        with centering_com(h[isim].get_halo(i)):
+        with centering_com(h[isim].get_halo(i), r=h[isim]._get_r200(i)):
             print(h[isim].get_halo(i))
             isres = h[isim].is_resolved(i, sub_idx=0)        
             isrel = h[isim].is_relaxed(i, sub_idx=0)
@@ -54,7 +54,7 @@ for isim in range(len(st)):
                 c.append(relax_tmp)
                 M200_shape.append(np.log10(h[isim].get_mass200(i)))
                 s.append(s_tmp)
-    wf('data/Concentration_'+st[isim]+'_'+str(FLAGS.sim_min_particle_number)+
+    wf('data3/Concentration_'+st[isim]+'_'+str(FLAGS.sim_min_particle_number)+
        '_'+ss+'_redshift'+str(FLAGS.redshift)+'.txt', c, M200, res, rel)
-    wf('data/Shape_'+st[isim]+'_'+str(FLAGS.sim_min_particle_number)+
+    wf('data3/Shape_'+st[isim]+'_'+str(FLAGS.sim_min_particle_number)+
        '_'+ss+'_redshift'+str(FLAGS.redshift)+'.txt', s, M200_shape, mode='shape')
